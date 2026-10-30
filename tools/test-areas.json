@@ -189,6 +189,11 @@
       "Deploy บน Vercel",
       "DEPLOY-VERCEL",
       "vercel.ts + bootstrap — entry ของ Vercel Function"
+    ],
+    "db-url.test.ts": [
+      "Deploy บน Vercel",
+      "DEPLOY-VERCEL",
+      "db.datasourceUrl — เติม pgbouncer=true ให้ pooled URL ของ Neon"
     ]
   },
   "web": {

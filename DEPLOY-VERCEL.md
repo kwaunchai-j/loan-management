@@ -7,6 +7,8 @@
 | `loan-web` | `web` | Next.js (หน้าเว็บ/PWA) — ส่งต่อ `/api/*` ไปที่ API (เบราว์เซอร์คุยกับโดเมนเดียว คุกกี้ล็อกอินจึงเป็น first-party) |
 | `loan-api` | `api` | Express เป็น Vercel Function เดียว (`api/api/index.js` → `dist/vercel.js`) |
 
+**สถานะ:** deploy แล้วเมื่อ 2026-10-31 — เว็บ https://loan-web-phi.vercel.app · API https://loan-api-pi.vercel.app (ฐานข้อมูล Neon `loan-db` และ Blob private `loan-files` ภูมิภาคสิงคโปร์ `sin1`, บัญชี Vercel `kwaunchai-j` แพ็กเกจ Hobby)
+
 บริการที่ต้องมีเพิ่ม: **Postgres** (แนะนำ Neon ผ่าน Vercel Marketplace) และ **Vercel Blob แบบ private** (เก็บสลิป/ไฟล์นำเข้า)
 
 > **แพ็กเกจ:** Hobby ของ Vercel ใช้ได้เฉพาะงานที่ไม่ใช่เชิงพาณิชย์ และ cron จะรันได้วันละครั้งเวลาคลาดเคลื่อนได้ถึง ~1 ชั่วโมง (แจ้งเตือน 09:00/17:00 จะไม่ตรงเวลา) — ระบบปล่อยกู้ของธุรกิจควรใช้ **Pro**
@@ -33,7 +35,7 @@ npx vercel login          # ล็อกอินด้วยบัญชี Ver
 cd api && npx vercel link --yes --project loan-api
 cd ../web && npx vercel link --yes --project loan-web
 ```
-ใน Dashboard ของแต่ละโปรเจกต์: **Settings → Build & Deployment → Root Directory** = `api` และ `web` ตามลำดับ (ถ้าเชื่อมกับ GitHub repo ให้ตั้งตรงนี้ด้วย)
+Deploy ด้วย CLI จากโฟลเดอร์ `api` / `web` โดยตรง **ต้องปล่อย Root Directory ว่าง**; ตั้งเป็น `api` / `web` เฉพาะเมื่อเชื่อมโปรเจกต์กับ GitHub repo (Settings → Build & Deployment → Root Directory) — มิฉะนั้น CLI จะหา `api/api` ไม่เจอ
 
 ### 3) ฐานข้อมูลและ Blob
 - **Postgres:** Dashboard → Storage → Create → Neon (เชื่อมกับ `loan-api`) จะได้ `DATABASE_URL` (pooled) และ `DATABASE_URL_UNPOOLED` ให้เอง
@@ -92,6 +94,20 @@ curl -s -o /dev/null -w "%{http_code}\n" https://<api-domain>/cron/late-fee     
 curl -s -H "Authorization: Bearer $CRON_SECRET" https://<api-domain>/cron/late-fee                       # {"job":"late-fee","ran":true,...}
 ```
 แล้วลองในเบราว์เซอร์: เข้าเว็บ → ล็อกอิน → ตั้งอัตราดอกเบี้ย/ค่าปรับ → สร้างผู้ยืม → แนบสลิป (ต้องผ่านและเปิดดูได้เฉพาะแอดมิน)
+
+## สิ่งที่พบตอน deploy จริง
+- Vercel เดา framework ของ `api` เป็น Express แล้วหา entrypoint ผิดที่ → `api/vercel.json` จึงตั้ง `"framework": null` ให้ใช้ function ของเราเอง (`api/api/index.js`)
+- function ต้องอยู่ภูมิภาคเดียวกับฐานข้อมูล: `"regions": ["sin1"]` ใน `api/vercel.json` (ก่อนตั้ง function รันที่สหรัฐ แล้วคำขอช้าเป็นวินาที)
+- Neon pooled URL ที่ Vercel ให้มาไม่มี `pgbouncer=true` — โค้ด (`src/db.ts`) เติมให้เองเมื่อโฮสต์เป็น `-pooler`
+- `vercel integration add neon` เพิ่มไฟล์ skill ของบุคคลที่สามเข้ามาในโฟลเดอร์โปรเจกต์ (`.agents/`, `.claude/`, `skills-lock.json`) — ลบทิ้งแล้ว ไม่ต้อง commit
+- ค่า environment ที่ตั้งผ่าน CLI บัญชีนี้ถูกเก็บเป็นแบบ **Secret (Hidden)** อ่านกลับไม่ได้ — ระวังกับ `FIELD_ENCRYPTION_KEY` ดูหัวข้อด้านล่าง
+- หน้าสิทธิ์: โดเมน production (`*.vercel.app` ของโปรเจกต์) เปิดสาธารณะ ใช้งานได้; ตรวจที่ Settings → Deployment Protection ถ้าต้องการเปลี่ยน
+
+## ต้องทำเอง (ผมทำแทนไม่ได้)
+1. **Firewall rate limit** ของ login (ขั้นตอน 7) — เป็นการตั้งค่าความปลอดภัย
+2. **สำรอง `FIELD_ENCRYPTION_KEY`** — ค่าที่ตั้งไว้อ่านกลับไม่ได้ ถ้าจะมีสำเนา ให้สร้างคีย์ใหม่เองแล้วตั้งทับ (`npx vercel env add FIELD_ENCRYPTION_KEY production`) **ก่อนมีข้อมูลเลขบัญชีจริง** เพราะเปลี่ยนคีย์ทีหลังจะถอดรหัสข้อมูลเก่าไม่ได้
+3. เปลี่ยนรหัสผ่านแอดมินตอนเข้าครั้งแรก แล้วลบไฟล์ `api/.env.admin-login`
+4. พิจารณาอัปเกรดเป็น Pro (Hobby = ไม่ใช่เชิงพาณิชย์ และ cron คลาดเคลื่อนได้ ~1 ชม.)
 
 ## ข้อจำกัดที่ควรรู้
 - รูปสลิปจากมือถือที่ใหญ่เกิน 4 MB จะถูกปฏิเสธ (บีบรูปก่อนส่ง หรือขอให้ถ่ายใหม่ขนาดเล็กลง)

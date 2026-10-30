@@ -1,7 +1,7 @@
 # ชุดทดสอบ (Test Cases) — ระบบขอยืมเงิน
 
 > เอกสารนี้ **สร้างจากการรันเทสต์จริง** ด้วย `tools/gen-test-catalog.mjs` — ทุกแถวคือเทสต์อัตโนมัติที่มีอยู่และรันได้ ไม่มีเคสที่เป็นแค่คำอธิบาย
-> สร้างเมื่อ 2026-10-30 · ผลรัน: API 591 เคส, Web 439 เคส · ผ่านทั้งหมด
+> สร้างเมื่อ 2026-10-30 · ผลรัน: API 595 เคส, Web 439 เคส · ผ่านทั้งหมด
 
 ## 1. วิธีรัน
 
@@ -69,8 +69,9 @@
 | สัญญาและการจ่ายเงิน | `slips.test.ts` | F5 · DES-011 | lib/slip-storage + route — เก็บ/เปิดสลิป เฉพาะ ADMIN | 14 |
 | Deploy บน Vercel | `blob-storage.test.ts` | DEPLOY-VERCEL | lib/blob-storage — สลิป/ไฟล์นำเข้าใน Vercel Blob private | 20 |
 | Deploy บน Vercel | `cron-routes.test.ts` | DEPLOY-VERCEL · F6 · F7 | jobs/cron-routes — งานกลางคืนเรียกผ่าน HTTP ด้วย CRON_SECRET | 16 |
+| Deploy บน Vercel | `db-url.test.ts` | DEPLOY-VERCEL | db.datasourceUrl — เติม pgbouncer=true ให้ pooled URL ของ Neon | 4 |
 | Deploy บน Vercel | `vercel-entry.test.ts` | DEPLOY-VERCEL | vercel.ts + bootstrap — entry ของ Vercel Function | 8 |
-| **รวม** | 38 ไฟล์ | | | **591** |
+| **รวม** | 39 ไฟล์ | | | **595** |
 
 ### รายการเคสทั้งหมด
 
@@ -916,20 +917,31 @@
 | API-37-015 | the notification rounds | /notify-overdue: does not run while another process holds the lock | ✓ |
 | API-37-016 | the notification rounds | each job takes its own lock (a slow late-fee run does not block the notifications) | ✓ |
 
-#### API-38 · `vercel-entry.test.ts` — vercel.ts + bootstrap — entry ของ Vercel Function
+#### API-38 · `db-url.test.ts` — db.datasourceUrl — เติม pgbouncer=true ให้ pooled URL ของ Neon
 
 อ้างอิง: DEPLOY-VERCEL
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-38-001 | the Vercel entry point | serves the same application: health, the login-protected routes, JSON errors | ✓ |
-| API-38-002 | the Vercel entry point | builds the application once and reuses it for every later request | ✓ |
-| API-38-003 | the Vercel entry point | with STORAGE_BACKEND=blob it keeps slips and import files in the Blob store | ✓ |
-| API-38-004 | the Vercel entry point | by default it keeps them on disk, never touching the Blob store | ✓ |
-| API-38-005 | the Vercel entry point | the /cron routes exist only when CRON_SECRET is set | ✓ |
-| API-38-006 | the Vercel entry point | sends the session cookie as Secure in production | ✓ |
-| API-38-007 | the Vercel entry point | a bad setting gives a plain 500 for every request, logs the reason without any value, and tells the caller nothing | ✓ |
-| API-38-008 | the Vercel entry point | recovers once the setting is fixed (the broken start is not remembered) | ✓ |
+| API-38-001 | datasourceUrl | adds pgbouncer=true to a pooled (Neon -pooler) address and keeps the other parts | ✓ |
+| API-38-002 | datasourceUrl | does not change it when pgbouncer is already given, even as false | ✓ |
+| API-38-003 | datasourceUrl | leaves a direct Neon address, a local one and a docker one exactly as they are | ✓ |
+| API-38-004 | datasourceUrl | returns what it was given when it is not a URL, and undefined when there is nothing | ✓ |
+
+#### API-39 · `vercel-entry.test.ts` — vercel.ts + bootstrap — entry ของ Vercel Function
+
+อ้างอิง: DEPLOY-VERCEL
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| API-39-001 | the Vercel entry point | serves the same application: health, the login-protected routes, JSON errors | ✓ |
+| API-39-002 | the Vercel entry point | builds the application once and reuses it for every later request | ✓ |
+| API-39-003 | the Vercel entry point | with STORAGE_BACKEND=blob it keeps slips and import files in the Blob store | ✓ |
+| API-39-004 | the Vercel entry point | by default it keeps them on disk, never touching the Blob store | ✓ |
+| API-39-005 | the Vercel entry point | the /cron routes exist only when CRON_SECRET is set | ✓ |
+| API-39-006 | the Vercel entry point | sends the session cookie as Secure in production | ✓ |
+| API-39-007 | the Vercel entry point | a bad setting gives a plain 500 for every request, logs the reason without any value, and tells the caller nothing | ✓ |
+| API-39-008 | the Vercel entry point | recovers once the setting is fixed (the broken start is not remembered) | ✓ |
 
 ## 4. เทสต์เว็บ (`web/test`)
 

@@ -5,3 +5,6 @@ dist/
 !.env.example
 *.log
 uploads/
+
+.vercel
+.env*
