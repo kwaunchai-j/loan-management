@@ -169,11 +169,6 @@
       "นำเข้าข้อมูล",
       "F10 · DES-014",
       "imports/* — preview, confirm, rollback, ชื่อซ้ำ"
-    ],
-    "dev-tests.test.ts": [
-      "เครื่องมือชั่วคราว (dev-tools)",
-      "DEV-TOOLS",
-      "dev-tools/* — ปุ่มรันเทสต์ในเว็บ (จะเอาออกก่อน deploy จริง)"
     ]
   },
   "web": {
@@ -306,11 +301,6 @@
       "PWA",
       "Security",
       "next.config — header ความปลอดภัย, proxy"
-    ],
-    "dev-tests.test.tsx": [
-      "เครื่องมือชั่วคราว (dev-tools)",
-      "DEV-TOOLS",
-      "components/devtests — หน้ารันเทสต์ในเว็บ (จะเอาออกก่อน deploy จริง)"
     ]
   }
 }

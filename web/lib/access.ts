@@ -59,8 +59,6 @@ export function menuFor(role: SessionUser["role"]): NavItem[] {
       { href: "/admin/imports", label: "นำเข้าข้อมูล" },
       { href: "/admin/notifications", label: "แจ้งเตือน" },
       { href: "/admin/settings", label: "ตั้งค่าอัตรา" },
-      // DEV-TOOLS (temporary): shown only in a build made with NEXT_PUBLIC_DEV_TOOLS=1
-      ...(process.env.NEXT_PUBLIC_DEV_TOOLS === "1" ? [{ href: "/admin/dev-tests", label: "รันเทสต์" }] : []),
     ];
   }
   return [

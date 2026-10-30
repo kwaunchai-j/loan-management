@@ -10,8 +10,6 @@ import { Notifier } from "./notifications/service.js";
 import { createVapidSender, createWebPushAdapter } from "./notifications/webpush.js";
 import type { ChannelAdapter } from "./notifications/types.js";
 import { Scheduler } from "./jobs/scheduler.js";
-import path from "node:path"; // DEV-TOOLS (temporary)
-import { TestRunner } from "./dev-tools/test-runner.js"; // DEV-TOOLS (temporary)
 
 const config = loadConfig();
 process.env.TZ = config.TZ;
@@ -48,10 +46,6 @@ const app = createApp({
   importMaxBytes: config.IMPORT_MAX_BYTES,
   notifier,
   vapidPublicKey: config.VAPID_PUBLIC_KEY,
-  // DEV-TOOLS (temporary): the API runs from api/, so the repository root is one level up
-  devTestRunner: config.DEV_TEST_RUNNER
-    ? new TestRunner({ repoRoot: path.resolve(process.cwd(), ".."), databaseUrl: process.env.DATABASE_URL })
-    : undefined,
 });
 app.listen(config.PORT, () => {
   console.log(`api listening on :${config.PORT}`);

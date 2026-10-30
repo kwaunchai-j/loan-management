@@ -22,8 +22,6 @@ import { createAdminImportsRouter, DEFAULT_IMPORT_MAX_BYTES } from "./imports/ro
 import type { ImportStorage } from "./imports/storage.js";
 import type { Notifier } from "./notifications/service.js";
 import { createNotificationSetupRouter } from "./notifications/routes.js";
-import { createDevTestsRouter } from "./dev-tools/routes.js"; // DEV-TOOLS (temporary)
-import type { TestRunner } from "./dev-tools/test-runner.js"; // DEV-TOOLS (temporary)
 
 export interface AppDeps {
   prisma: Db;
@@ -49,8 +47,6 @@ export interface AppDeps {
   notifier?: Notifier;
   /** Public VAPID key served to the browser so it can subscribe to Web Push. */
   vapidPublicKey?: string;
-  /** DEV-TOOLS (temporary): the in-app test runner. Absent = the /admin/dev-tests routes do not exist. */
-  devTestRunner?: TestRunner;
 }
 
 export interface CreatedApp {
@@ -137,8 +133,6 @@ export function buildApp(deps?: AppDeps): CreatedApp {
         maxBytes: deps.importMaxBytes ?? DEFAULT_IMPORT_MAX_BYTES,
       }),
     );
-    // DEV-TOOLS (temporary): test runner button; only when DEV_TEST_RUNNER is on
-    if (deps.devTestRunner) app.use("/admin/dev-tests", createDevTestsRouter({ auth, runner: deps.devTestRunner }));
     app.use("/admin", createAdminLedgerRouter({ prisma: deps.prisma, auth, storage: deps.slipStorage }));
     app.use(
       "/admin/slips",

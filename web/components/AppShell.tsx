@@ -19,7 +19,6 @@ const MENU_ICON: Record<string, IconName> = {
   "/admin/imports": "upload",
   "/admin/notifications": "bell",
   "/admin/settings": "sliders",
-  "/admin/dev-tests": "check", // DEV-TOOLS (temporary)
   "/me": "home",
   "/me/request": "plus",
   "/me/contracts": "document",

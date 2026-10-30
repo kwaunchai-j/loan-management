@@ -35,12 +35,6 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .optional()
     .transform((v) => (v === undefined ? undefined : v === "true")),
-  // DEV-TOOLS (temporary): lets the admin run the automated tests from the web app. Development only;
-  // refused in production. Remove with the dev-tools folder (DEV-TOOLS-REMOVAL.md).
-  DEV_TEST_RUNNER: z
-    .enum(["true", "false"])
-    .optional()
-    .transform((v) => v === "true"),
 });
 
 const vapidKeys = ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"] as const;
@@ -58,9 +52,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Env {
   const set = vapidKeys.filter((k) => parsed.data[k] !== undefined);
   if (set.length > 0 && set.length < vapidKeys.length) {
     throw new Error(`Invalid environment: set all of ${vapidKeys.join(", ")} or none (missing: ${vapidKeys.filter((k) => parsed.data[k] === undefined).join(", ")})`);
-  }
-  if (parsed.data.DEV_TEST_RUNNER && parsed.data.NODE_ENV === "production") {
-    throw new Error("Invalid environment: DEV_TEST_RUNNER must not be enabled when NODE_ENV=production");
   }
   return parsed.data;
 }

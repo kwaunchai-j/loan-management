@@ -73,28 +73,6 @@ describe("loadConfig (environment validation)", () => {
     expect(loadConfig(withEnv({ SCHEDULER_ENABLED: "false" })).SCHEDULER_ENABLED).toBe(false);
   });
 
-  describe("DEV_TEST_RUNNER (temporary in-app test runner)", () => {
-    it("is off unless asked for", () => {
-      expect(loadConfig(withEnv()).DEV_TEST_RUNNER).toBe(false);
-      expect(loadConfig(withEnv({ DEV_TEST_RUNNER: "false" })).DEV_TEST_RUNNER).toBe(false);
-    });
-
-    it("can be turned on in development and test", () => {
-      expect(loadConfig(withEnv({ DEV_TEST_RUNNER: "true" })).DEV_TEST_RUNNER).toBe(true);
-      expect(loadConfig(withEnv({ DEV_TEST_RUNNER: "true", NODE_ENV: "test" })).DEV_TEST_RUNNER).toBe(true);
-    });
-
-    it("is refused in production, so the server will not even start with it on", () => {
-      expect(() => loadConfig(withEnv({ DEV_TEST_RUNNER: "true", NODE_ENV: "production" }))).toThrow(/DEV_TEST_RUNNER must not be enabled/);
-      expect(loadConfig(withEnv({ DEV_TEST_RUNNER: "false", NODE_ENV: "production" })).DEV_TEST_RUNNER).toBe(false);
-      expect(loadConfig(withEnv({ NODE_ENV: "production" })).DEV_TEST_RUNNER).toBe(false);
-    });
-
-    it("accepts only true or false", () => {
-      expect(() => loadConfig(withEnv({ DEV_TEST_RUNNER: "yes" }))).toThrow(/Invalid environment/);
-    });
-  });
-
   describe("Web Push keys: all three or none", () => {
     it("accepts none and accepts all three (mailto or https subject)", () => {
       expect(loadConfig(withEnv()).VAPID_PUBLIC_KEY).toBeUndefined();
