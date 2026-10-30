@@ -174,6 +174,21 @@
       "สัญญาและการจ่ายเงิน",
       "F3 · F4 · DES-010 · DES-019",
       "loans/interest-estimate + route — ผู้ยืมประมาณดอกเบี้ย (ไม่บันทึกข้อมูล)"
+    ],
+    "blob-storage.test.ts": [
+      "Deploy บน Vercel",
+      "DEPLOY-VERCEL",
+      "lib/blob-storage — สลิป/ไฟล์นำเข้าใน Vercel Blob private"
+    ],
+    "cron-routes.test.ts": [
+      "Deploy บน Vercel",
+      "DEPLOY-VERCEL · F6 · F7",
+      "jobs/cron-routes — งานกลางคืนเรียกผ่าน HTTP ด้วย CRON_SECRET"
+    ],
+    "vercel-entry.test.ts": [
+      "Deploy บน Vercel",
+      "DEPLOY-VERCEL",
+      "vercel.ts + bootstrap — entry ของ Vercel Function"
     ]
   },
   "web": {
@@ -311,6 +326,11 @@
       "พอร์ทัลผู้ยืม",
       "F3 · DES-019",
       "components/InterestEstimate + หน้าขอยืม — กล่องดอกเบี้ยโดยประมาณ"
+    ],
+    "limits.test.tsx": [
+      "Deploy บน Vercel",
+      "DEPLOY-VERCEL · F5",
+      "lib/limits + ฟอร์มสลิป — ขนาดสลิปปรับตาม build"
     ]
   }
 }

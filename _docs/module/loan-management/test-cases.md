@@ -1,7 +1,7 @@
 # ชุดทดสอบ (Test Cases) — ระบบขอยืมเงิน
 
 > เอกสารนี้ **สร้างจากการรันเทสต์จริง** ด้วย `tools/gen-test-catalog.mjs` — ทุกแถวคือเทสต์อัตโนมัติที่มีอยู่และรันได้ ไม่มีเคสที่เป็นแค่คำอธิบาย
-> สร้างเมื่อ 2026-10-30 · ผลรัน: API 540 เคส, Web 423 เคส · ผ่านทั้งหมด
+> สร้างเมื่อ 2026-10-30 · ผลรัน: API 591 เคส, Web 439 เคส · ผ่านทั้งหมด
 
 ## 1. วิธีรัน
 
@@ -37,7 +37,7 @@
 | การคำนวณเงิน | `interest.test.ts` | F4 · DES-010 | lib/interest — ดอกเบี้ย ปัดขึ้นเป็นบาทเต็ม | 18 |
 | การคำนวณเงิน | `late-fee.test.ts` | F6 · DES-012 | lib/late-fee — ค่าปรับรายวันคิดซ้อน ปัดขึ้นเป็นบาทเต็ม | 15 |
 | การคำนวณเงิน | `money.test.ts` | F4 · F6 · DES-010 · DES-012 | lib/money — Decimal, roundUpBaht, ห้ามใช้ number | 21 |
-| ค่าตั้งต้น | `config.test.ts` | F2 · Security | config — ตรวจ environment, ค่าลับ, VAPID ครบหรือไม่มีเลย | 29 |
+| ค่าตั้งต้น | `config.test.ts` | F2 · Security | config — ตรวจ environment, ค่าลับ, VAPID ครบหรือไม่มีเลย | 36 |
 | ค่าตั้งต้น | `health.test.ts` | Operations | health — ตรวจสุขภาพระบบ | 1 |
 | ค่าตั้งต้น | `settings.test.ts` | F2 | settings/* — อัตราดอกเบี้ยและค่าปรับ (ไม่ hard-code) | 11 |
 | งานเบื้องหลัง | `scheduler.test.ts` | F6 · T-304 | jobs/scheduler + late-fee-job กับ PostgreSQL จริง (advisory lock, ตามเก็บย้อนหลัง) | 16 |
@@ -67,7 +67,10 @@
 | สัญญาและการจ่ายเงิน | `ledger.test.ts` | F5 · F6 · DES-011 · DES-012 · DES-016 | loans/ledger, payments — รับชำระ แก้ ลบ replay สัญญา | 36 |
 | สัญญาและการจ่ายเงิน | `loans.test.ts` | F3 · F4 · DES-004–006 | loans/* — คำขอยืม, อนุมัติ, สัญญา, สิทธิ์ | 31 |
 | สัญญาและการจ่ายเงิน | `slips.test.ts` | F5 · DES-011 | lib/slip-storage + route — เก็บ/เปิดสลิป เฉพาะ ADMIN | 14 |
-| **รวม** | 35 ไฟล์ | | | **540** |
+| Deploy บน Vercel | `blob-storage.test.ts` | DEPLOY-VERCEL | lib/blob-storage — สลิป/ไฟล์นำเข้าใน Vercel Blob private | 20 |
+| Deploy บน Vercel | `cron-routes.test.ts` | DEPLOY-VERCEL · F6 · F7 | jobs/cron-routes — งานกลางคืนเรียกผ่าน HTTP ด้วย CRON_SECRET | 16 |
+| Deploy บน Vercel | `vercel-entry.test.ts` | DEPLOY-VERCEL | vercel.ts + bootstrap — entry ของ Vercel Function | 8 |
+| **รวม** | 38 ไฟล์ | | | **591** |
 
 ### รายการเคสทั้งหมด
 
@@ -199,14 +202,21 @@
 | API-06-019 | loadConfig (environment validation) | rejects SCHEDULER_ENABLED = "yes" | ✓ |
 | API-06-020 | loadConfig (environment validation) | names every problem in one message, and never prints the value that was wrong | ✓ |
 | API-06-021 | loadConfig (environment validation) | reads SCHEDULER_ENABLED as a real boolean | ✓ |
-| API-06-022 | loadConfig (environment validation) › Web Push keys: all three or none | accepts none and accepts all three (mailto or https subject) | ✓ |
-| API-06-023 | loadConfig (environment validation) › Web Push keys: all three or none | refuses a partial set when VAPID_PUBLIC_KEY is missing and says which one | ✓ |
-| API-06-024 | loadConfig (environment validation) › Web Push keys: all three or none | refuses a partial set when VAPID_PRIVATE_KEY is missing and says which one | ✓ |
-| API-06-025 | loadConfig (environment validation) › Web Push keys: all three or none | refuses a partial set when VAPID_SUBJECT is missing and says which one | ✓ |
-| API-06-026 | loadConfig (environment validation) › Web Push keys: all three or none | refuses the subject "admin@example.com" | ✓ |
-| API-06-027 | loadConfig (environment validation) › Web Push keys: all three or none | refuses the subject "http://insecure.example.com" | ✓ |
-| API-06-028 | loadConfig (environment validation) › Web Push keys: all three or none | refuses the subject "mailto:" | ✓ |
-| API-06-029 | loadConfig (environment validation) › Web Push keys: all three or none | refuses the subject "ftp://x.example.com" | ✓ |
+| API-06-022 | loadConfig (environment validation) › a blank value means not set | treats NAME= (empty) like a missing optional setting instead of rejecting it | ✓ |
+| API-06-023 | loadConfig (environment validation) › a blank value means not set | a blank required setting is still missing, and named in the error | ✓ |
+| API-06-024 | loadConfig (environment validation) › where files are kept (STORAGE_BACKEND) | is the disk unless asked otherwise | ✓ |
+| API-06-025 | loadConfig (environment validation) › where files are kept (STORAGE_BACKEND) | blob needs the store id (on Vercel) or a token, and says so when neither is there | ✓ |
+| API-06-026 | loadConfig (environment validation) › where files are kept (STORAGE_BACKEND) | does not need Blob credentials while the disk is used | ✓ |
+| API-06-027 | loadConfig (environment validation) › where files are kept (STORAGE_BACKEND) | accepts only disk or blob | ✓ |
+| API-06-028 | loadConfig (environment validation) › CRON_SECRET (Vercel Cron) | is optional, and when given must be long enough to be a secret | ✓ |
+| API-06-029 | loadConfig (environment validation) › Web Push keys: all three or none | accepts none and accepts all three (mailto or https subject) | ✓ |
+| API-06-030 | loadConfig (environment validation) › Web Push keys: all three or none | refuses a partial set when VAPID_PUBLIC_KEY is missing and says which one | ✓ |
+| API-06-031 | loadConfig (environment validation) › Web Push keys: all three or none | refuses a partial set when VAPID_PRIVATE_KEY is missing and says which one | ✓ |
+| API-06-032 | loadConfig (environment validation) › Web Push keys: all three or none | refuses a partial set when VAPID_SUBJECT is missing and says which one | ✓ |
+| API-06-033 | loadConfig (environment validation) › Web Push keys: all three or none | refuses the subject "admin@example.com" | ✓ |
+| API-06-034 | loadConfig (environment validation) › Web Push keys: all three or none | refuses the subject "http://insecure.example.com" | ✓ |
+| API-06-035 | loadConfig (environment validation) › Web Push keys: all three or none | refuses the subject "mailto:" | ✓ |
+| API-06-036 | loadConfig (environment validation) › Web Push keys: all three or none | refuses the subject "ftp://x.example.com" | ✓ |
 
 #### API-07 · `health.test.ts` — health — ตรวจสุขภาพระบบ
 
@@ -856,6 +866,71 @@
 | API-35-013 | slip upload and download (PostgreSQL) | is ADMIN only for both upload and download | ✓ |
 | API-35-014 | slip upload and download (PostgreSQL) | answers 404 for unknown keys and path-traversal attempts | ✓ |
 
+#### API-36 · `blob-storage.test.ts` — lib/blob-storage — สลิป/ไฟล์นำเข้าใน Vercel Blob private
+
+อ้างอิง: DEPLOY-VERCEL
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| API-36-001 | BlobSlipStorage | keeps a slip under slips/<key> with the right content type, and gives the same bytes back | ✓ |
+| API-36-002 | BlobSlipStorage | answers null / false for a slip that is not there, and removing twice is fine | ✓ |
+| API-36-003 | BlobSlipStorage | never overwrites an existing slip | ✓ |
+| API-36-004 | BlobSlipStorage | never asks the store about the key "" | ✓ |
+| API-36-005 | BlobSlipStorage | never asks the store about the key "../x.jpg" | ✓ |
+| API-36-006 | BlobSlipStorage | never asks the store about the key "a/b.jpg" | ✓ |
+| API-36-007 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.gif" | ✓ |
+| API-36-008 | BlobSlipStorage | never asks the store about the key "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.jpg" | ✓ |
+| API-36-009 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg" | ✓ |
+| API-36-010 | BlobSlipStorage | never asks the store about the key "slips/../../x" | ✓ |
+| API-36-011 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg\n" | ✓ |
+| API-36-012 | BlobImportStorage | stores under imports/<key>, with the right content type, and returns bytes and the upload time | ✓ |
+| API-36-013 | BlobImportStorage | deletes a file, never overwrites, and answers null for a missing or invalid key | ✓ |
+| API-36-014 | BlobImportStorage | purges only our own files that are older than the limit, and says how many | ✓ |
+| API-36-015 | vercelBlobClient (the real calls, with the SDK replaced) | put: private store, no suffix, no overwrite, with the content type | ✓ |
+| API-36-016 | vercelBlobClient (the real calls, with the SDK replaced) | get: reads from a private store bypassing the cache, and returns the bytes and upload time | ✓ |
+| API-36-017 | vercelBlobClient (the real calls, with the SDK replaced) | get: null when the store has no such blob, or does not answer 200 | ✓ |
+| API-36-018 | vercelBlobClient (the real calls, with the SDK replaced) | exists: true when the blob has metadata, false for 'not found', and any other failure is not hidden | ✓ |
+| API-36-019 | vercelBlobClient (the real calls, with the SDK replaced) | remove deletes by pathname | ✓ |
+| API-36-020 | vercelBlobClient (the real calls, with the SDK replaced) | list: follows the pages until there are no more | ✓ |
+
+#### API-37 · `cron-routes.test.ts` — jobs/cron-routes — งานกลางคืนเรียกผ่าน HTTP ด้วย CRON_SECRET
+
+อ้างอิง: DEPLOY-VERCEL · F6 · F7
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| API-37-001 | the secret | /late-fee: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
+| API-37-002 | the secret | /notify-due-today: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
+| API-37-003 | the secret | /notify-overdue: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
+| API-37-004 | the secret | the secret in the address does not count, and the answer never contains the secret | ✓ |
+| API-37-005 | the secret | only GET is accepted (that is what Vercel Cron sends); anything else is not a route | ✓ |
+| API-37-006 | /late-fee | runs the nightly late-fee job and reports only counts | ✓ |
+| API-37-007 | /late-fee | counts failed contracts, logs which ones, but never puts a contract id or reason in the answer | ✓ |
+| API-37-008 | /late-fee | does not run while another process holds the job's lock, and says so | ✓ |
+| API-37-009 | /late-fee | a crash inside the job is a 500 with no detail (and Vercel will show the run as failed) | ✓ |
+| API-37-010 | the notification rounds | /notify-due-today: with no contract that qualifies it sends nothing and says so | ✓ |
+| API-37-011 | the notification rounds | /notify-overdue: with no contract that qualifies it sends nothing and says so | ✓ |
+| API-37-012 | the notification rounds | /notify-due-today: skips (without error) when no notifier is configured | ✓ |
+| API-37-013 | the notification rounds | /notify-overdue: skips (without error) when no notifier is configured | ✓ |
+| API-37-014 | the notification rounds | /notify-due-today: does not run while another process holds the lock | ✓ |
+| API-37-015 | the notification rounds | /notify-overdue: does not run while another process holds the lock | ✓ |
+| API-37-016 | the notification rounds | each job takes its own lock (a slow late-fee run does not block the notifications) | ✓ |
+
+#### API-38 · `vercel-entry.test.ts` — vercel.ts + bootstrap — entry ของ Vercel Function
+
+อ้างอิง: DEPLOY-VERCEL
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| API-38-001 | the Vercel entry point | serves the same application: health, the login-protected routes, JSON errors | ✓ |
+| API-38-002 | the Vercel entry point | builds the application once and reuses it for every later request | ✓ |
+| API-38-003 | the Vercel entry point | with STORAGE_BACKEND=blob it keeps slips and import files in the Blob store | ✓ |
+| API-38-004 | the Vercel entry point | by default it keeps them on disk, never touching the Blob store | ✓ |
+| API-38-005 | the Vercel entry point | the /cron routes exist only when CRON_SECRET is set | ✓ |
+| API-38-006 | the Vercel entry point | sends the session cookie as Secure in production | ✓ |
+| API-38-007 | the Vercel entry point | a bad setting gives a plain 500 for every request, logs the reason without any value, and tells the caller nothing | ✓ |
+| API-38-008 | the Vercel entry point | recovers once the setting is fixed (the broken start is not remembered) | ✓ |
+
 ## 4. เทสต์เว็บ (`web/test`)
 
 ### สรุปตามส่วนงาน
@@ -885,11 +960,12 @@
 | หน้า admin | `admin-requests.test.tsx` | F3 | หน้าคำขอยืม | 17 |
 | หน้า admin | `admin-settings.test.tsx` | F2 | หน้าตั้งอัตรา | 12 |
 | หน้า admin | `calendar.test.tsx` | F11 · DES-018 | ปฏิทิน admin | 14 |
+| Deploy บน Vercel | `limits.test.tsx` | DEPLOY-VERCEL · F5 | lib/limits + ฟอร์มสลิป — ขนาดสลิปปรับตาม build | 16 |
 | PWA | `manifest.test.ts` | F7 | manifest.webmanifest + ไอคอน | 4 |
 | PWA | `next-config.test.ts` | Security | next.config — header ความปลอดภัย, proxy | 5 |
 | PWA | `register-sw.test.tsx` | F7 | components/RegisterServiceWorker | 5 |
 | PWA | `service-worker.test.ts` | F7 | public/sw.js — offline, push, notificationclick | 14 |
-| **รวม** | 27 ไฟล์ | | | **423** |
+| **รวม** | 28 ไฟล์ | | | **439** |
 
 ### รายการเคสทั้งหมด
 
@@ -1449,61 +1525,84 @@
 | WEB-23-013 | calendar page | starts the first of the month on the right weekday column | ✓ |
 | WEB-23-014 | calendar page | warns when the month had too much to show, and shows the API's message on failure | ✓ |
 
-#### WEB-24 · `manifest.test.ts` — manifest.webmanifest + ไอคอน
+#### WEB-24 · `limits.test.tsx` — lib/limits + ฟอร์มสลิป — ขนาดสลิปปรับตาม build
+
+อ้างอิง: DEPLOY-VERCEL · F5
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| WEB-24-001 | slipLimit | is 5 MB unless the build says otherwise | ✓ |
+| WEB-24-002 | slipLimit | follows NEXT_PUBLIC_SLIP_MAX_MB (4 on Vercel, where a request body may not exceed 4.5 MB) | ✓ |
+| WEB-24-003 | slipLimit | rounds down to whole MB: 4.7 -> 4 | ✓ |
+| WEB-24-004 | slipLimit | rounds down to whole MB: 1 -> 1 | ✓ |
+| WEB-24-005 | slipLimit | rounds down to whole MB: 50 -> 50 | ✓ |
+| WEB-24-006 | slipLimit | falls back to 5 MB for the unusable value "" | ✓ |
+| WEB-24-007 | slipLimit | falls back to 5 MB for the unusable value "abc" | ✓ |
+| WEB-24-008 | slipLimit | falls back to 5 MB for the unusable value "0" | ✓ |
+| WEB-24-009 | slipLimit | falls back to 5 MB for the unusable value "0.5" | ✓ |
+| WEB-24-010 | slipLimit | falls back to 5 MB for the unusable value "-3" | ✓ |
+| WEB-24-011 | slipLimit | falls back to 5 MB for the unusable value "51" | ✓ |
+| WEB-24-012 | slipLimit | falls back to 5 MB for the unusable value "1000" | ✓ |
+| WEB-24-013 | slipLimit | falls back to 5 MB for the unusable value "NaN" | ✓ |
+| WEB-24-014 | slipLimit | falls back to 5 MB for the unusable value "Infinity" | ✓ |
+| WEB-24-015 | the slip form uses the configured limit | says 5 MB by default | ✓ |
+| WEB-24-016 | the slip form uses the configured limit | says 4 MB and refuses a 4.5 MB picture when the build is set to 4 | ✓ |
+
+#### WEB-25 · `manifest.test.ts` — manifest.webmanifest + ไอคอน
 
 อ้างอิง: F7
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-24-001 | PWA manifest | declares an installable standalone Thai app that starts at / | ✓ |
-| WEB-24-002 | PWA manifest | has a 192, a 512 and a maskable icon, and every icon file exists at its stated size | ✓ |
-| WEB-24-003 | PWA manifest | has the iOS home-screen icon the layout links to | ✓ |
-| WEB-24-004 | PWA manifest | has an offline page in Thai | ✓ |
+| WEB-25-001 | PWA manifest | declares an installable standalone Thai app that starts at / | ✓ |
+| WEB-25-002 | PWA manifest | has a 192, a 512 and a maskable icon, and every icon file exists at its stated size | ✓ |
+| WEB-25-003 | PWA manifest | has the iOS home-screen icon the layout links to | ✓ |
+| WEB-25-004 | PWA manifest | has an offline page in Thai | ✓ |
 
-#### WEB-25 · `next-config.test.ts` — next.config — header ความปลอดภัย, proxy
+#### WEB-26 · `next-config.test.ts` — next.config — header ความปลอดภัย, proxy
 
 อ้างอิง: Security
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-25-001 | next.config | forwards /api/* to the API server side, so the browser stays on one origin | ✓ |
-| WEB-25-002 | next.config | sends the security headers on every page | ✓ |
-| WEB-25-003 | next.config | never lets the service worker file be cached | ✓ |
-| WEB-25-004 | next.config | sends the old new-request notification address to the page that exists | ✓ |
-| WEB-25-005 | next.config | does not advertise the framework | ✓ |
+| WEB-26-001 | next.config | forwards /api/* to the API server side, so the browser stays on one origin | ✓ |
+| WEB-26-002 | next.config | sends the security headers on every page | ✓ |
+| WEB-26-003 | next.config | never lets the service worker file be cached | ✓ |
+| WEB-26-004 | next.config | sends the old new-request notification address to the page that exists | ✓ |
+| WEB-26-005 | next.config | does not advertise the framework | ✓ |
 
-#### WEB-26 · `register-sw.test.tsx` — components/RegisterServiceWorker
-
-อ้างอิง: F7
-
-| รหัส | กลุ่ม | เคส | ผล |
-|---|---|---|---|
-| WEB-26-001 | RegisterServiceWorker | registers /sw.js for the whole site in a production build | ✓ |
-| WEB-26-002 | RegisterServiceWorker | does nothing in development (a service worker would only get in the way) | ✓ |
-| WEB-26-003 | RegisterServiceWorker | does nothing, and does not crash, in a browser without service workers | ✓ |
-| WEB-26-004 | RegisterServiceWorker | the app keeps working when registration is refused | ✓ |
-| WEB-26-005 | RegisterServiceWorker | renders nothing visible | ✓ |
-
-#### WEB-27 · `service-worker.test.ts` — public/sw.js — offline, push, notificationclick
+#### WEB-27 · `register-sw.test.tsx` — components/RegisterServiceWorker
 
 อ้างอิง: F7
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-27-001 | service worker | on install keeps only the offline page | ✓ |
-| WEB-27-002 | service worker | on activate removes other caches and takes control | ✓ |
-| WEB-27-003 | service worker | lets a page load through the network when online | ✓ |
-| WEB-27-004 | service worker | shows the offline page when a page cannot be loaded | ✓ |
-| WEB-27-005 | service worker | never touches API calls, even page-like ones | ✓ |
-| WEB-27-006 | service worker | never touches non-GET requests, assets or other origins | ✓ |
-| WEB-27-007 | service worker | stores nothing but the offline page | ✓ |
-| WEB-27-008 | service worker: Web Push | shows the notification the server sent, as plain text | ✓ |
-| WEB-27-009 | service worker: Web Push | always shows something, even when the payload is empty or unreadable (browsers demand it) | ✓ |
-| WEB-27-010 | service worker: Web Push | cuts an over-long title and body | ✓ |
-| WEB-27-011 | service worker: Web Push | a notification only ever points at a page of this site | ✓ |
-| WEB-27-012 | service worker: Web Push | clicking opens the page in a new window when the app is not open | ✓ |
-| WEB-27-013 | service worker: Web Push | clicking brings an open window of the app forward and goes to the page | ✓ |
-| WEB-27-014 | service worker: Web Push | clicking can never be turned into leaving the site | ✓ |
+| WEB-27-001 | RegisterServiceWorker | registers /sw.js for the whole site in a production build | ✓ |
+| WEB-27-002 | RegisterServiceWorker | does nothing in development (a service worker would only get in the way) | ✓ |
+| WEB-27-003 | RegisterServiceWorker | does nothing, and does not crash, in a browser without service workers | ✓ |
+| WEB-27-004 | RegisterServiceWorker | the app keeps working when registration is refused | ✓ |
+| WEB-27-005 | RegisterServiceWorker | renders nothing visible | ✓ |
+
+#### WEB-28 · `service-worker.test.ts` — public/sw.js — offline, push, notificationclick
+
+อ้างอิง: F7
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| WEB-28-001 | service worker | on install keeps only the offline page | ✓ |
+| WEB-28-002 | service worker | on activate removes other caches and takes control | ✓ |
+| WEB-28-003 | service worker | lets a page load through the network when online | ✓ |
+| WEB-28-004 | service worker | shows the offline page when a page cannot be loaded | ✓ |
+| WEB-28-005 | service worker | never touches API calls, even page-like ones | ✓ |
+| WEB-28-006 | service worker | never touches non-GET requests, assets or other origins | ✓ |
+| WEB-28-007 | service worker | stores nothing but the offline page | ✓ |
+| WEB-28-008 | service worker: Web Push | shows the notification the server sent, as plain text | ✓ |
+| WEB-28-009 | service worker: Web Push | always shows something, even when the payload is empty or unreadable (browsers demand it) | ✓ |
+| WEB-28-010 | service worker: Web Push | cuts an over-long title and body | ✓ |
+| WEB-28-011 | service worker: Web Push | a notification only ever points at a page of this site | ✓ |
+| WEB-28-012 | service worker: Web Push | clicking opens the page in a new window when the app is not open | ✓ |
+| WEB-28-013 | service worker: Web Push | clicking brings an open window of the app forward and goes to the page | ✓ |
+| WEB-28-014 | service worker: Web Push | clicking can never be turned into leaving the site | ✓ |
 
 ## 5. ความครอบคลุมที่วัดได้
 

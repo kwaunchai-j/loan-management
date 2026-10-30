@@ -22,6 +22,7 @@ import { createAdminImportsRouter, DEFAULT_IMPORT_MAX_BYTES } from "./imports/ro
 import type { ImportStorage } from "./imports/storage.js";
 import type { Notifier } from "./notifications/service.js";
 import { createNotificationSetupRouter } from "./notifications/routes.js";
+import { createCronRouter } from "./jobs/cron-routes.js";
 
 export interface AppDeps {
   prisma: Db;
@@ -47,6 +48,12 @@ export interface AppDeps {
   notifier?: Notifier;
   /** Public VAPID key served to the browser so it can subscribe to Web Push. */
   vapidPublicKey?: string;
+  /**
+   * Secret that Vercel Cron sends as "Authorization: Bearer <secret>" to run the nightly jobs
+   * (late fees, the 09:00 and 17:00 notifications) where there is no long-running process for the scheduler.
+   * Absent = the /cron routes do not exist.
+   */
+  cronSecret?: string;
 }
 
 export interface CreatedApp {
@@ -91,6 +98,7 @@ export function buildApp(deps?: AppDeps): CreatedApp {
         onPaymentSubmitted: (id) => deps.notifier?.dispatch(() => deps.notifier!.paymentSubmitted(id)),
       }),
     );
+    if (deps.cronSecret) app.use("/cron", createCronRouter({ prisma: deps.prisma, secret: deps.cronSecret, notifier: deps.notifier }));
     app.use("/admin/payment-submissions", createAdminSubmissionsRouter({ prisma: deps.prisma, auth }));
     app.use("/admin/calendar", createAdminCalendarRouter({ prisma: deps.prisma, auth }));
     app.use("/admin/reports", createAdminReportsRouter({ prisma: deps.prisma, auth }));

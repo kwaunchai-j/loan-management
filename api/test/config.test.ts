@@ -73,6 +73,50 @@ describe("loadConfig (environment validation)", () => {
     expect(loadConfig(withEnv({ SCHEDULER_ENABLED: "false" })).SCHEDULER_ENABLED).toBe(false);
   });
 
+  describe("a blank value means not set", () => {
+    it("treats NAME= (empty) like a missing optional setting instead of rejecting it", () => {
+      const c = loadConfig(withEnv({ LINE_CHANNEL_ACCESS_TOKEN: "", CRON_SECRET: "", BLOB_STORE_ID: "", VAPID_PUBLIC_KEY: "", PORT: "" }));
+      expect(c.LINE_CHANNEL_ACCESS_TOKEN).toBeUndefined();
+      expect(c.CRON_SECRET).toBeUndefined();
+      expect(c.PORT).toBe(4000); // the default
+    });
+
+    it("a blank required setting is still missing, and named in the error", () => {
+      for (const name of ["DATABASE_URL", "SESSION_SECRET", "FIELD_ENCRYPTION_KEY"]) {
+        expect(() => loadConfig(withEnv({ [name]: "" }))).toThrow(new RegExp(name));
+      }
+    });
+  });
+
+  describe("where files are kept (STORAGE_BACKEND)", () => {
+    it("is the disk unless asked otherwise", () => {
+      expect(loadConfig(withEnv()).STORAGE_BACKEND).toBe("disk");
+      expect(loadConfig(withEnv({ STORAGE_BACKEND: "disk" })).STORAGE_BACKEND).toBe("disk");
+    });
+
+    it("blob needs the store id (on Vercel) or a token, and says so when neither is there", () => {
+      expect(() => loadConfig(withEnv({ STORAGE_BACKEND: "blob" }))).toThrow(/BLOB_STORE_ID.*BLOB_READ_WRITE_TOKEN/);
+      expect(loadConfig(withEnv({ STORAGE_BACKEND: "blob", BLOB_STORE_ID: "store_abc" })).STORAGE_BACKEND).toBe("blob");
+      expect(loadConfig(withEnv({ STORAGE_BACKEND: "blob", BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_x" })).STORAGE_BACKEND).toBe("blob");
+    });
+
+    it("does not need Blob credentials while the disk is used", () => {
+      expect(() => loadConfig(withEnv({ STORAGE_BACKEND: "disk" }))).not.toThrow();
+    });
+
+    it("accepts only disk or blob", () => {
+      for (const bad of ["s3", "BLOB", "memory"]) expect(() => loadConfig(withEnv({ STORAGE_BACKEND: bad }))).toThrow(/STORAGE_BACKEND/);
+    });
+  });
+
+  describe("CRON_SECRET (Vercel Cron)", () => {
+    it("is optional, and when given must be long enough to be a secret", () => {
+      expect(loadConfig(withEnv()).CRON_SECRET).toBeUndefined();
+      expect(loadConfig(withEnv({ CRON_SECRET: "c".repeat(16) })).CRON_SECRET).toBe("c".repeat(16));
+      expect(() => loadConfig(withEnv({ CRON_SECRET: "c".repeat(15) }))).toThrow(/CRON_SECRET must be at least 16/);
+    });
+  });
+
   describe("Web Push keys: all three or none", () => {
     it("accepts none and accepts all three (mailto or https subject)", () => {
       expect(loadConfig(withEnv()).VAPID_PUBLIC_KEY).toBeUndefined();

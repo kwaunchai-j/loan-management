@@ -3,13 +3,12 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { apiFetch, errorMessage } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { slipLimit } from "@/lib/limits";
 import { checkDate, checkMoney, formatBaht, formatDay, todayBangkok } from "@/lib/money";
 import { mySubmissionListSchema, mySubmissionSchema, type MySubmission, type SubmissionStatus } from "@/lib/schemas";
 import { useApi } from "@/lib/use-api";
 import { Alert, Badge, Button, Card, Spinner, TextAreaField, TextField } from "./ui";
 
-/** Mirrors the API's default slip limit (5 MB); the API checks again and its answer wins. */
-export const SUBMIT_MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPTED = ["image/jpeg", "image/png"];
 
 const STATUS: Record<SubmissionStatus, { label: string; tone: "amber" | "green" | "red" }> = {
@@ -58,8 +57,8 @@ export function PaymentSubmitCard({ contractId, disbursedOn }: { contractId: str
         ? "กรุณาแนบสลิปการโอนเงิน"
         : !ACCEPTED.includes(file.type)
           ? "รองรับเฉพาะไฟล์รูป JPEG หรือ PNG"
-          : file.size > SUBMIT_MAX_BYTES
-            ? "ไฟล์ใหญ่เกิน 5 MB"
+          : file.size > slipLimit().bytes
+            ? `ไฟล์ใหญ่เกิน ${slipLimit().mb} MB`
             : undefined,
       note: note.trim().length > 500 ? "หมายเหตุยาวไม่เกิน 500 ตัวอักษร" : undefined,
     };
@@ -108,7 +107,7 @@ export function PaymentSubmitCard({ contractId, disbursedOn }: { contractId: str
         <TextField label="วันที่โอน" type="date" min={disbursedOn ?? undefined} max={today} value={paidOn} error={errors.paidOn} onChange={(e) => setPaidOn(e.target.value)} />
         <div className="space-y-1">
           <label className="block text-sm font-medium text-slate-800">
-            สลิปการโอนเงิน (ภาพ JPEG หรือ PNG ไม่เกิน 5 MB)
+            สลิปการโอนเงิน (ภาพ JPEG หรือ PNG ไม่เกิน {slipLimit().mb} MB)
             <input
               ref={input}
               type="file"

@@ -35,6 +35,14 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .optional()
     .transform((v) => (v === undefined ? undefined : v === "true")),
+  // Where slips and staged import files are kept: "disk" (a folder, the default) or "blob" (a PRIVATE
+  // Vercel Blob store: on Vercel the disk of a function is read-only and lost between calls).
+  STORAGE_BACKEND: z.enum(["disk", "blob"]).default("disk"),
+  // Credentials for the Blob store, read by the Blob SDK itself: on Vercel the store id (OIDC), elsewhere a token.
+  BLOB_STORE_ID: z.string().min(1).optional(),
+  BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+  // Vercel Cron calls /cron/* with "Authorization: Bearer <this>". Without it those routes do not exist.
+  CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
 });
 
 const vapidKeys = ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"] as const;
@@ -42,7 +50,9 @@ const vapidKeys = ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"] as 
 export type Env = z.infer<typeof envSchema>;
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = envSchema.safeParse(source);
+  // A blank value (NAME= or an empty box in a dashboard) means "not set", not "an empty string".
+  const present = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== undefined && v !== ""));
+  const parsed = envSchema.safeParse(present);
   if (!parsed.success) {
     const detail = parsed.error.issues
       .map((i) => `${i.path.join(".")}: ${i.message}`)
@@ -52,6 +62,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Env {
   const set = vapidKeys.filter((k) => parsed.data[k] !== undefined);
   if (set.length > 0 && set.length < vapidKeys.length) {
     throw new Error(`Invalid environment: set all of ${vapidKeys.join(", ")} or none (missing: ${vapidKeys.filter((k) => parsed.data[k] === undefined).join(", ")})`);
+  }
+  if (parsed.data.STORAGE_BACKEND === "blob" && !parsed.data.BLOB_STORE_ID && !parsed.data.BLOB_READ_WRITE_TOKEN) {
+    throw new Error("Invalid environment: STORAGE_BACKEND=blob needs BLOB_STORE_ID (on Vercel) or BLOB_READ_WRITE_TOKEN");
   }
   return parsed.data;
 }

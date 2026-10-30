@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "public",
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "{dist/**,node_modules/.prisma/client/**}"
+    }
+  },
+  "crons": [
+    { "path": "/cron/late-fee", "schedule": "5 17 * * *" },
+    { "path": "/cron/notify-due-today", "schedule": "0 2 * * *" },
+    { "path": "/cron/notify-overdue", "schedule": "0 10 * * *" }
+  ]
+}

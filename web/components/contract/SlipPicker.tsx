@@ -3,19 +3,18 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Alert } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/api";
+import { slipLimit } from "@/lib/limits";
 import { slipUploadSchema } from "@/lib/schemas";
 
-/** Mirrors the API's limit (DEFAULT_SLIP_MAX_BYTES); the API checks again and its answer wins. */
-export const SLIP_MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPTED = ["image/jpeg", "image/png"];
 
 /**
  * Chooses a transfer-slip image and uploads it at once (POST /admin/slips), returning the key the
  * server made. The payout form needs that key: no slip, no payout (DES-011). Nothing but a JPEG or
- * PNG up to 5 MB is sent.
+ * PNG within the size limit (lib/limits.ts) is sent.
  */
 export function SlipPicker({
-  label = "สลิปการโอนเงิน (ภาพ JPEG หรือ PNG ไม่เกิน 5 MB)",
+  label = `สลิปการโอนเงิน (ภาพ JPEG หรือ PNG ไม่เกิน ${slipLimit().mb} MB)`,
   error,
   onChange,
 }: {
@@ -48,8 +47,8 @@ export function SlipPicker({
       if (input.current) input.current.value = "";
       return;
     }
-    if (file.size > SLIP_MAX_BYTES) {
-      setProblem("ไฟล์ใหญ่เกิน 5 MB");
+    if (file.size > slipLimit().bytes) {
+      setProblem(`ไฟล์ใหญ่เกิน ${slipLimit().mb} MB`);
       if (input.current) input.current.value = "";
       return;
     }
