@@ -1,0 +1,43 @@
+{
+  "name": "loan-management-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Loan management web (PWA) — ระบบขอยืมเงิน",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitest/coverage-v8": "^5.0.5",
+    "autoprefixer": "^10.6.2",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^3.4.19",
+    "typescript": "5.9",
+    "vitest": "^5.0.5"
+  }
+}

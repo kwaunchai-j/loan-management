@@ -1,0 +1,16 @@
+# Development PostgreSQL only. Production database is set up by the devops phase (T-1001).
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: loan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: loan_management
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - loan_pgdata:/var/lib/postgresql/data
+
+volumes:
+  loan_pgdata:

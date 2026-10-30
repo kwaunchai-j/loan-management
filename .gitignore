@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.local-test-login.txt
+coverage/
+tools/.api-report.json
+tools/.web-report.json

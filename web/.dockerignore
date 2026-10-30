@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+test
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+Dockerfile
+.dockerignore

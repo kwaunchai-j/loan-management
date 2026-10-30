@@ -1,0 +1,28 @@
+# Reverse proxy and HTTPS (T-1001). SITE_ADDRESS comes from compose.env:
+#   a real domain  -> Caddy gets and renews a Let's Encrypt certificate by itself (ports 80 and 443 must be open)
+#   localhost      -> a local test certificate (only for trying the stack on your own computer)
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	# the largest upload is a 5 MB slip (SLIP_MAX_BYTES); the API checks its own limits too
+	request_body {
+		max_size 8MB
+	}
+
+	header {
+		# HTTPS only, from now on, for a year (Web Push on iPhone needs HTTPS anyway)
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# /api/* goes straight to the API (the prefix is removed: /api/auth/me -> /auth/me).
+	# Caddy replaces any X-Forwarded-For sent by the client with the real address, which the API's
+	# login throttling relies on (TRUST_PROXY=1).
+	handle_path /api/* {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

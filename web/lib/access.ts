@@ -1,0 +1,76 @@
+import type { SessionUser } from "./schemas";
+
+/**
+ * Where each kind of user belongs (T-701). One pure function decides it, so the same rule drives
+ * the redirect after login, every page guard and the menu:
+ *
+ *   not logged in                       -> /login
+ *   must change the first password      -> /change-password   (before anything else)
+ *   ADMIN                               -> /admin
+ *   BORROWER who has not accepted PDPA  -> /pdpa              (before any borrower page)
+ *   BORROWER                            -> /me
+ *
+ * This only decides what the PAGES show. The real access control is in the API, which refuses
+ * every request the user may not make whatever the page does.
+ */
+export function destinationFor(user: SessionUser | null): string {
+  if (!user) return "/login";
+  if (user.mustChangePassword) return "/change-password";
+  if (user.role === "ADMIN") return "/admin";
+  // a borrower whose PDPA status is anything but "accepted" is sent to accept it first
+  if (user.pdpaAccepted !== true) return "/pdpa";
+  return "/me";
+}
+
+export type Need = "anonymous" | "change-password" | "pdpa" | "admin" | "borrower";
+
+const HOME_OF: Record<Need, string> = {
+  anonymous: "/login",
+  "change-password": "/change-password",
+  pdpa: "/pdpa",
+  admin: "/admin",
+  borrower: "/me",
+};
+
+export type Access = { allowed: true } | { allowed: false; redirect: string };
+
+/** May `user` see a page that needs `need`? If not, where must they go instead? */
+export function resolveAccess(user: SessionUser | null, need: Need): Access {
+  const destination = destinationFor(user);
+  return destination === HOME_OF[need] ? { allowed: true } : { allowed: false, redirect: destination };
+}
+
+export interface NavItem {
+  href: string;
+  label: string;
+}
+
+/** The menu of a role. Only pages that exist are listed. */
+export function menuFor(role: SessionUser["role"]): NavItem[] {
+  if (role === "ADMIN") {
+    return [
+      { href: "/admin", label: "หน้าหลัก" },
+      { href: "/admin/requests", label: "คำขอยืม" },
+      { href: "/admin/calendar", label: "ปฏิทิน" },
+      { href: "/admin/contracts", label: "สัญญา" },
+      { href: "/admin/payments", label: "สลิปชำระ" },
+      { href: "/admin/borrowers", label: "ผู้ยืม" },
+      { href: "/admin/reports", label: "รายงาน" },
+      { href: "/admin/imports", label: "นำเข้าข้อมูล" },
+      { href: "/admin/notifications", label: "แจ้งเตือน" },
+      { href: "/admin/settings", label: "ตั้งค่าอัตรา" },
+      // DEV-TOOLS (temporary): shown only in a build made with NEXT_PUBLIC_DEV_TOOLS=1
+      ...(process.env.NEXT_PUBLIC_DEV_TOOLS === "1" ? [{ href: "/admin/dev-tests", label: "รันเทสต์" }] : []),
+    ];
+  }
+  return [
+    { href: "/me", label: "หน้าหลัก" },
+    { href: "/me/request", label: "ขอยืมเงิน" },
+    { href: "/me/contracts", label: "สัญญาของฉัน" },
+  ];
+}
+
+export const ROLE_LABEL: Record<SessionUser["role"], string> = {
+  ADMIN: "ผู้ดูแลระบบ",
+  BORROWER: "ผู้ยืม",
+};

@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  BORROWER
+}
+
+enum LoanRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ContractStatus {
+  AWAITING_DISBURSEMENT
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+enum NotificationType {
+  NEW_REQUEST
+  DUE_TODAY
+  OVERDUE
+  PAYMENT_SUBMITTED
+}
+
+enum PaymentSubmissionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum NotificationChannel {
+  LINE
+  WEB_PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum ImportBatchStatus {
+  COMPLETED
+  ROLLED_BACK
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  username           String   @unique
+  passwordHash       String
+  role               Role
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(true)
+  lineUserId         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  borrower           Borrower?
+  loanRequestsCreated LoanRequest[] @relation("RequestCreatedBy")
+  loanRequestsDecided LoanRequest[] @relation("RequestDecidedBy")
+  disbursementsRecorded Disbursement[]
+  paymentsRecorded   Payment[]
+  submissionsDecided PaymentSubmission[] @relation("SubmissionDecidedBy")
+  importBatches      ImportBatch[]
+  pushSubscriptions  PushSubscription[]
+  auditLogs          AuditLog[]
+  settingsUpdated    Setting[]
+}
+
+model Borrower {
+  id             String    @id @default(cuid())
+  userId         String?   @unique
+  fullName       String
+  phone          String?
+  bankName       String?
+  bankAccountNo  String?
+  pdpaAcceptedAt DateTime?
+  pdpaVersion    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User?     @relation(fields: [userId], references: [id])
+  loanRequests   LoanRequest[]
+  contracts      Contract[]
+  paymentSubmissions PaymentSubmission[]
+
+  @@index([fullName])
+}
+
+model Setting {
+  id                       Int      @id @default(1)
+  interestRatePctPerMonth  Decimal? @db.Decimal(7, 4)
+  lateFeeRatePctPerDay     Decimal? @db.Decimal(7, 4)
+  updatedById              String?
+  updatedAt                DateTime @updatedAt
+
+  updatedBy                User?    @relation(fields: [updatedById], references: [id])
+}
+
+model LoanRequest {
+  id               String            @id @default(cuid())
+  borrowerId       String
+  amount           Decimal           @db.Decimal(14, 2)
+  requestedDueDate DateTime          @db.Date
+  status           LoanRequestStatus @default(PENDING)
+  createdById      String
+  decidedById      String?
+  decidedAt        DateTime?
+  rejectReason     String?
+  createdAt        DateTime          @default(now())
+
+  borrower         Borrower          @relation(fields: [borrowerId], references: [id])
+  createdBy        User              @relation("RequestCreatedBy", fields: [createdById], references: [id])
+  decidedBy        User?             @relation("RequestDecidedBy", fields: [decidedById], references: [id])
+  contract         Contract?
+
+  @@index([borrowerId])
+  @@index([status])
+}
+
+model Contract {
+  id                      String         @id @default(cuid())
+  contractNo              String         @unique
+  borrowerId              String
+  loanRequestId           String?        @unique
+  principal               Decimal        @db.Decimal(14, 2)
+  dueDate                 DateTime       @db.Date
+  status                  ContractStatus @default(AWAITING_DISBURSEMENT)
+  disbursedOn             DateTime?      @db.Date
+  interestRatePctPerMonth Decimal?       @db.Decimal(7, 4)
+  lateFeeRatePctPerDay    Decimal?       @db.Decimal(7, 4)
+  interestAmount          Decimal?       @db.Decimal(14, 2)
+  outstandingPrincipal    Decimal        @db.Decimal(14, 2)
+  outstandingInterest     Decimal        @default(0) @db.Decimal(14, 2)
+  accruedLateFee          Decimal        @default(0) @db.Decimal(14, 2)
+  closedOn                DateTime?      @db.Date
+  isImported              Boolean        @default(false)
+  importBatchId           String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  borrower                Borrower       @relation(fields: [borrowerId], references: [id])
+  loanRequest             LoanRequest?   @relation(fields: [loanRequestId], references: [id])
+  importBatch             ImportBatch?   @relation(fields: [importBatchId], references: [id])
+  disbursement            Disbursement?
+  payments                Payment[]
+  paymentSubmissions      PaymentSubmission[]
+  lateFeeAccruals         LateFeeAccrual[]
+  notifications           NotificationLog[]
+
+  @@index([borrowerId])
+  @@index([status, dueDate])
+  @@index([importBatchId])
+}
+
+model Disbursement {
+  id           String   @id @default(cuid())
+  contractId   String   @unique
+  amount       Decimal  @db.Decimal(14, 2)
+  paidOn       DateTime @db.Date
+  slipFileKey  String
+  note         String?
+  recordedById String
+  createdAt    DateTime @default(now())
+
+  contract     Contract @relation(fields: [contractId], references: [id])
+  recordedBy   User     @relation(fields: [recordedById], references: [id])
+}
+
+model Payment {
+  id                 String   @id @default(cuid())
+  contractId         String
+  amount             Decimal  @db.Decimal(14, 2)
+  paidOn             DateTime @db.Date
+  allocatedLateFee   Decimal  @default(0) @db.Decimal(14, 2)
+  allocatedInterest  Decimal  @default(0) @db.Decimal(14, 2)
+  allocatedPrincipal Decimal  @default(0) @db.Decimal(14, 2)
+  note               String?
+  recordedById       String
+  createdAt          DateTime @default(now())
+
+  contract           Contract @relation(fields: [contractId], references: [id])
+  recordedBy         User     @relation(fields: [recordedById], references: [id])
+  submission         PaymentSubmission?
+
+  @@index([contractId, paidOn])
+  @@index([paidOn])
+}
+
+/// A borrower's claim "I paid this much on this day" with the transfer slip (change request CR-1).
+/// It does NOT change any balance. Only an ADMIN confirming it records a real Payment (and links it
+/// here through paymentId); rejecting it keeps the reason for the borrower to see.
+model PaymentSubmission {
+  id           String                  @id @default(cuid())
+  contractId   String
+  borrowerId   String
+  amount       Decimal                 @db.Decimal(14, 2)
+  paidOn       DateTime                @db.Date
+  slipFileKey  String                  @unique
+  note         String?
+  status       PaymentSubmissionStatus @default(PENDING)
+  rejectReason String?
+  decidedById  String?
+  decidedAt    DateTime?
+  paymentId    String?                 @unique
+  createdAt    DateTime                @default(now())
+
+  contract     Contract                @relation(fields: [contractId], references: [id])
+  borrower     Borrower                @relation(fields: [borrowerId], references: [id])
+  decidedBy    User?                   @relation("SubmissionDecidedBy", fields: [decidedById], references: [id])
+  payment      Payment?                @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([contractId])
+  @@index([borrowerId])
+}
+
+model LateFeeAccrual {
+  id           String   @id @default(cuid())
+  contractId   String
+  accrualDate  DateTime @db.Date
+  baseAmount   Decimal  @db.Decimal(14, 2)
+  ratePctPerDay Decimal @db.Decimal(7, 4)
+  amount       Decimal  @db.Decimal(14, 2)
+  createdAt    DateTime @default(now())
+
+  contract     Contract @relation(fields: [contractId], references: [id])
+
+  @@unique([contractId, accrualDate])
+}
+
+model NotificationLog {
+  id            String              @id @default(cuid())
+  dedupeKey     String              @unique
+  type          NotificationType
+  channel       NotificationChannel
+  contractId    String?
+  scheduledDate DateTime            @db.Date
+  status        NotificationStatus  @default(PENDING)
+  attempts      Int                 @default(0)
+  sentAt        DateTime?
+  error         String?
+  createdAt     DateTime            @default(now())
+
+  contract      Contract?           @relation(fields: [contractId], references: [id])
+
+  @@index([type, scheduledDate])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ImportBatch {
+  id           String            @id @default(cuid())
+  fileName     String
+  importedById String
+  rowCount     Int
+  status       ImportBatchStatus @default(COMPLETED)
+  rolledBackAt DateTime?
+  createdAt    DateTime          @default(now())
+
+  importedBy   User              @relation(fields: [importedById], references: [id])
+  contracts    Contract[]
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  detail     Json?
+  createdAt  DateTime @default(now())
+
+  actor      User?    @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

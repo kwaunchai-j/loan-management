@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #f3f6f7;
+    /* a faint teal glow behind the header, so pages are not flat grey */
+    background-image: radial-gradient(70rem 26rem at 50% -12rem, rgb(20 184 166 / 0.12), transparent 70%);
+    background-repeat: no-repeat;
+  }
+
+  ::selection {
+    background: rgb(20 184 166 / 0.25);
+  }
+
+  /* amounts and dates line up in columns */
+  dd,
+  time {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

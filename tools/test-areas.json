@@ -1,0 +1,316 @@
+{
+  "api": {
+    "interest.test.ts": [
+      "การคำนวณเงิน",
+      "F4 · DES-010",
+      "lib/interest — ดอกเบี้ย ปัดขึ้นเป็นบาทเต็ม"
+    ],
+    "late-fee.test.ts": [
+      "การคำนวณเงิน",
+      "F6 · DES-012",
+      "lib/late-fee — ค่าปรับรายวันคิดซ้อน ปัดขึ้นเป็นบาทเต็ม"
+    ],
+    "money.test.ts": [
+      "การคำนวณเงิน",
+      "F4 · F6 · DES-010 · DES-012",
+      "lib/money — Decimal, roundUpBaht, ห้ามใช้ number"
+    ],
+    "allocation.test.ts": [
+      "การคำนวณเงิน",
+      "F5 · DES-011",
+      "lib/allocation — ตัดยอด ค่าปรับ → ดอกเบี้ย → เงินต้น"
+    ],
+    "dates.test.ts": [
+      "การคำนวณเงิน",
+      "F6 · DES-012",
+      "lib/dates — วันที่ Asia/Bangkok, parse/format"
+    ],
+    "disbursement.test.ts": [
+      "สัญญาและการจ่ายเงิน",
+      "F4 · F5 · DES-010 · DES-011",
+      "loans/disbursement — บันทึกจ่ายเงิน, สลิปบังคับ, snapshot อัตรา"
+    ],
+    "loans.test.ts": [
+      "สัญญาและการจ่ายเงิน",
+      "F3 · F4 · DES-004–006",
+      "loans/* — คำขอยืม, อนุมัติ, สัญญา, สิทธิ์"
+    ],
+    "ledger.test.ts": [
+      "สัญญาและการจ่ายเงิน",
+      "F5 · F6 · DES-011 · DES-012 · DES-016",
+      "loans/ledger, payments — รับชำระ แก้ ลบ replay สัญญา"
+    ],
+    "slips.test.ts": [
+      "สัญญาและการจ่ายเงิน",
+      "F5 · DES-011",
+      "lib/slip-storage + route — เก็บ/เปิดสลิป เฉพาะ ADMIN"
+    ],
+    "submissions.test.ts": [
+      "ผู้ยืมแจ้งชำระ + ปฏิทิน",
+      "F5-CR1 · F11 · DES-017 · DES-018",
+      "loans/submissions, calendar — ผู้ยืมส่งสลิป admin ยืนยัน, ปฏิทิน"
+    ],
+    "borrower-portal.test.ts": [
+      "พอร์ทัลผู้ยืม",
+      "F8",
+      "borrower/portal — ผู้ยืมเห็นเฉพาะของตน"
+    ],
+    "borrowers.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1 · F8",
+      "borrowers/* — สร้าง/แก้ผู้ยืม, บัญชี, ข้อมูลส่วนบุคคลเข้ารหัส"
+    ],
+    "auth.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1",
+      "auth/routes — login/logout/me/เปลี่ยนรหัส, cookie, สิทธิ์"
+    ],
+    "auth-lib.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1",
+      "lib/password, session — scrypt, นโยบายรหัสผ่าน, token"
+    ],
+    "login-throttle.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1",
+      "auth/throttle — จำกัดการเดารหัสผ่าน"
+    ],
+    "admin-reset.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1",
+      "scripts/admin-accounts — รีเซ็ตรหัสผ่านผู้ดูแล"
+    ],
+    "pdpa.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1 · PDPA",
+      "pdpa/* — ความยินยอม, เวอร์ชันข้อความ"
+    ],
+    "field-crypto.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1 · PDPA",
+      "lib/field-crypto — AES-GCM เข้ารหัสฟิลด์"
+    ],
+    "audit.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1 · F5",
+      "lib/audit — AuditLog ใน transaction เดียวกับการเปลี่ยนข้อมูล"
+    ],
+    "settings.test.ts": [
+      "ค่าตั้งต้น",
+      "F2",
+      "settings/* — อัตราดอกเบี้ยและค่าปรับ (ไม่ hard-code)"
+    ],
+    "config.test.ts": [
+      "ค่าตั้งต้น",
+      "F2 · Security",
+      "config — ตรวจ environment, ค่าลับ, VAPID ครบหรือไม่มีเลย"
+    ],
+    "health.test.ts": [
+      "ค่าตั้งต้น",
+      "Operations",
+      "health — ตรวจสุขภาพระบบ"
+    ],
+    "scheduler.test.ts": [
+      "งานเบื้องหลัง",
+      "F6 · T-304",
+      "jobs/scheduler + late-fee-job กับ PostgreSQL จริง (advisory lock, ตามเก็บย้อนหลัง)"
+    ],
+    "scheduler-unit.test.ts": [
+      "งานเบื้องหลัง",
+      "F6 · F7 · T-304",
+      "jobs/scheduler, late-fee-job, notify-jobs — ตรรกะเวลา/ล็อก/ตัวจับเวลา ไม่ใช้ฐานข้อมูล"
+    ],
+    "notifier.test.ts": [
+      "แจ้งเตือน",
+      "F7 · DES-013",
+      "notifications/service — dedupe, retry, หลายช่องทาง"
+    ],
+    "notify-channels.test.ts": [
+      "แจ้งเตือน",
+      "F7",
+      "notifications/line, webpush — adapter ช่องทาง"
+    ],
+    "webpush-sender.test.ts": [
+      "แจ้งเตือน",
+      "F7",
+      "notifications/webpush — createVapidSender"
+    ],
+    "notify-jobs.test.ts": [
+      "แจ้งเตือน",
+      "F7 · DES-013",
+      "jobs/notify-jobs — รอบ 09:00 ครบกำหนด / 17:00 เลยกำหนด"
+    ],
+    "notify-messages.test.ts": [
+      "แจ้งเตือน",
+      "F7 · DES-013",
+      "notifications/messages, format — ข้อความ ไทย จำนวนเงิน"
+    ],
+    "notify-routes.test.ts": [
+      "แจ้งเตือน",
+      "F7",
+      "notifications/routes — ตั้งค่า LINE/Push, ประวัติ"
+    ],
+    "reports.test.ts": [
+      "รายงาน",
+      "F9 · DES-015",
+      "reports/* — กำไรขาดทุน, ยอดค้าง, ผู้ชำระช้า"
+    ],
+    "import-file.test.ts": [
+      "นำเข้าข้อมูล",
+      "F10 · DES-014",
+      "imports/file — อ่าน CSV/XLSX"
+    ],
+    "import-storage.test.ts": [
+      "นำเข้าข้อมูล",
+      "F10 · DES-014",
+      "imports/storage — ไฟล์รอยืนยัน"
+    ],
+    "imports.test.ts": [
+      "นำเข้าข้อมูล",
+      "F10 · DES-014",
+      "imports/* — preview, confirm, rollback, ชื่อซ้ำ"
+    ],
+    "dev-tests.test.ts": [
+      "เครื่องมือชั่วคราว (dev-tools)",
+      "DEV-TOOLS",
+      "dev-tools/* — ปุ่มรันเทสต์ในเว็บ (จะเอาออกก่อน deploy จริง)"
+    ]
+  },
+  "web": {
+    "money.test.ts": [
+      "การแสดงผลเงิน/วันที่",
+      "F4 · F6",
+      "lib/money — formatBaht, checkMoney, วันที่ไทย"
+    ],
+    "validation.test.ts": [
+      "การตรวจข้อมูลฟอร์ม",
+      "F1 · F3",
+      "lib/validation — กฎเดียวกับ API"
+    ],
+    "report-period.test.ts": [
+      "การตรวจข้อมูลฟอร์ม",
+      "F9",
+      "lib/report-period — เลือกช่วงรายงาน"
+    ],
+    "period-picker.test.tsx": [
+      "รายงาน",
+      "F9",
+      "components/reports/PeriodPicker"
+    ],
+    "reports.test.tsx": [
+      "รายงาน",
+      "F9 · DES-015",
+      "หน้ารายงาน — แสดงตัวเลขจาก API ตามที่ได้รับ"
+    ],
+    "access.test.ts": [
+      "สิทธิ์และเมนู",
+      "F1",
+      "lib/access — หน้าที่แต่ละบทบาทเข้าได้"
+    ],
+    "gate.test.tsx": [
+      "สิทธิ์และเมนู",
+      "F1",
+      "components/Gate — ป้องกันหน้า, ลองใหม่เมื่อเชื่อมต่อไม่ได้"
+    ],
+    "gate-and-pages.test.tsx": [
+      "สิทธิ์และเมนู",
+      "F1",
+      "layouts, login, PDPA, เปลี่ยนรหัสผ่าน, หน้าแรก"
+    ],
+    "app-shell.test.tsx": [
+      "สิทธิ์และเมนู",
+      "F1",
+      "components/AppShell — เมนูตามบทบาท, ออกจากระบบ"
+    ],
+    "session-store.test.ts": [
+      "สิทธิ์และเมนู",
+      "F1",
+      "lib/session-store — สถานะผู้ใช้"
+    ],
+    "api.test.ts": [
+      "การเรียก API",
+      "—",
+      "lib/api — fetch, ตรวจ schema, ข้อความผิดพลาดไทย"
+    ],
+    "ui.test.tsx": [
+      "คอมโพเนนต์กลาง",
+      "A11y",
+      "components/ui — ปุ่ม ช่องกรอก Alert Badge Card Icon"
+    ],
+    "admin-settings.test.tsx": [
+      "หน้า admin",
+      "F2",
+      "หน้าตั้งอัตรา"
+    ],
+    "admin-requests.test.tsx": [
+      "หน้า admin",
+      "F3",
+      "หน้าคำขอยืม"
+    ],
+    "admin-contracts.test.tsx": [
+      "หน้า admin",
+      "F4",
+      "หน้ารายการสัญญา"
+    ],
+    "admin-ledger.test.tsx": [
+      "หน้า admin",
+      "F4 · F5 · DES-016",
+      "หน้าสัญญา: จ่ายเงิน รับชำระ แก้/ลบ"
+    ],
+    "admin-borrowers.test.tsx": [
+      "หน้า admin",
+      "F1 · F8",
+      "หน้าผู้ยืม"
+    ],
+    "calendar.test.tsx": [
+      "หน้า admin",
+      "F11 · DES-018",
+      "ปฏิทิน admin"
+    ],
+    "payment-submissions.test.tsx": [
+      "ผู้ยืมแจ้งชำระ",
+      "F5-CR1 · DES-017",
+      "ผู้ยืมส่งสลิป / admin ตรวจและยืนยัน"
+    ],
+    "borrower-portal.test.tsx": [
+      "พอร์ทัลผู้ยืม",
+      "F3 · F8",
+      "หน้าผู้ยืม: สัญญา ขอยืม"
+    ],
+    "imports.test.tsx": [
+      "นำเข้าข้อมูล",
+      "F10",
+      "หน้านำเข้าข้อมูล"
+    ],
+    "notifications.test.tsx": [
+      "แจ้งเตือน",
+      "F7",
+      "หน้าตั้งค่าแจ้งเตือน LINE/Push"
+    ],
+    "service-worker.test.ts": [
+      "PWA",
+      "F7",
+      "public/sw.js — offline, push, notificationclick"
+    ],
+    "register-sw.test.tsx": [
+      "PWA",
+      "F7",
+      "components/RegisterServiceWorker"
+    ],
+    "manifest.test.ts": [
+      "PWA",
+      "F7",
+      "manifest.webmanifest + ไอคอน"
+    ],
+    "next-config.test.ts": [
+      "PWA",
+      "Security",
+      "next.config — header ความปลอดภัย, proxy"
+    ],
+    "dev-tests.test.tsx": [
+      "เครื่องมือชั่วคราว (dev-tools)",
+      "DEV-TOOLS",
+      "components/devtests — หน้ารันเทสต์ในเว็บ (จะเอาออกก่อน deploy จริง)"
+    ]
+  }
+}

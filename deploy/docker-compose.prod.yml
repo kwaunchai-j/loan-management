@@ -1,0 +1,131 @@
+# Production stack (T-1001). Run it only through deploy/scripts/compose.sh, which points at the env
+# files that live OUTSIDE this repository (LOAN_ENV_DIR, default /etc/loan, mode 700).
+#
+#   proxy  Caddy: the ONLY thing exposed to the internet (80/443). Gets and renews the HTTPS certificate,
+#          sends /api/* to the API and everything else to the web app.
+#   web    the Next.js server.
+#   api    the API. It also runs the scheduler (late fees 00:05, notifications 09:00 / 17:00 Asia/Bangkok):
+#          SCHEDULER_ENABLED is true here and this service must stay at ONE replica. Never scale it.
+#   db     PostgreSQL. No published port: reachable only from api / tools inside the Docker network.
+#   tools  (profile "tools") one-off commands: migrations, creating the first admin, VAPID keys.
+name: loan
+
+# every service keeps at most 5 x 10 MB of logs (otherwise the disk slowly fills up)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    logging: *logging
+    env_file: ${LOAN_ENV_DIR:?run this through deploy/scripts/compose.sh}/db.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    build:
+      context: ../api
+      target: runtime
+    image: loan-api:${RELEASE:-local}
+    restart: unless-stopped
+    logging: *logging
+    env_file: ${LOAN_ENV_DIR:?}/api.env
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      TZ: Asia/Bangkok
+      TRUST_PROXY: "1" # exactly one proxy (Caddy) in front: login throttling sees the real client address
+      SLIP_STORAGE_DIR: /data/slips
+      IMPORT_STORAGE_DIR: /data/imports
+      SCHEDULER_ENABLED: "true"
+    volumes:
+      - uploads:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    build:
+      context: ../web
+      target: runtime
+    image: loan-web:${RELEASE:-local}
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      TZ: Asia/Bangkok
+    depends_on:
+      - api
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in compose.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+    security_opt:
+      - no-new-privileges:true
+
+  tools:
+    profiles: ["tools"]
+    build:
+      context: ../api
+      target: build
+    image: loan-tools:${RELEASE:-local}
+    env_file: ${LOAN_ENV_DIR:?}/api.env
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Bangkok
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/data
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:
