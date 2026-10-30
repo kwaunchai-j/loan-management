@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { InterestEstimate } from "@/components/InterestEstimate";
 import { RequestStatusBadge } from "@/components/status";
 import { Alert, Button, Card, PageTitle, Spinner, TextField } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/api";
@@ -90,9 +91,10 @@ function RequestForm({ onCreated }: { onCreated: () => void }) {
           autoComplete="off"
           value={amount}
           error={errors.amount}
-          hint="ดอกเบี้ยและยอดที่ต้องชำระจะคำนวณตอนผู้ให้กู้โอนเงินให้"
+          hint="กรอกจำนวนเงินเพื่อดูดอกเบี้ยโดยประมาณ ดอกเบี้ยจริงจะคำนวณตอนผู้ให้กู้โอนเงินให้"
           onChange={(e) => setAmount(e.target.value)}
         />
+        <InterestEstimate amount={amount} dueDate={dueDate} />
         <TextField
           label="วันที่จะคืนเงิน"
           type="date"

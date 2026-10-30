@@ -169,6 +169,11 @@
       "นำเข้าข้อมูล",
       "F10 · DES-014",
       "imports/* — preview, confirm, rollback, ชื่อซ้ำ"
+    ],
+    "interest-estimate.test.ts": [
+      "สัญญาและการจ่ายเงิน",
+      "F3 · F4 · DES-010 · DES-019",
+      "loans/interest-estimate + route — ผู้ยืมประมาณดอกเบี้ย (ไม่บันทึกข้อมูล)"
     ]
   },
   "web": {
@@ -301,6 +306,11 @@
       "PWA",
       "Security",
       "next.config — header ความปลอดภัย, proxy"
+    ],
+    "interest-estimate.test.tsx": [
+      "พอร์ทัลผู้ยืม",
+      "F3 · DES-019",
+      "components/InterestEstimate + หน้าขอยืม — กล่องดอกเบี้ยโดยประมาณ"
     ]
   }
 }

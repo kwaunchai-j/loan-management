@@ -91,6 +91,20 @@ export const requestSchema = z.object({
   contract: contractRefSchema.nullable(),
 });
 export type LoanRequest = z.infer<typeof requestSchema>;
+
+/** api/src/loans/interest-estimate.ts — GET /loan-requests/interest-estimate (a borrower's "how much interest?") */
+export const interestEstimateSchema = z.object({
+  amount: z.string(),
+  payoutDate: z.string(),
+  dueDate: z.string().nullable(),
+  days: z.number().int(),
+  daysAssumed: z.boolean(),
+  interestRatePctPerMonth: z.string(),
+  interestAmount: z.string(),
+  totalToRepay: z.string(),
+  isEstimate: z.literal(true),
+});
+export type InterestEstimate = z.infer<typeof interestEstimateSchema>;
 export const requestListSchema = z.object({ total: z.number().int(), items: z.array(requestSchema) });
 
 /** api/src/loans/routes.ts — POST /loan-requests and /loan-requests/:id/cancel answer with the same view */

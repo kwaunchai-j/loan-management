@@ -8,6 +8,7 @@ import { asyncHandler, DomainError, sendError } from "../http.js";
 import { formatDateOnly } from "../lib/dates.js";
 import { dateOnly, idParam, moneyAmount } from "../lib/schemas.js";
 import { disbursementView, recordDisbursement } from "./disbursement.js";
+import { estimateInterest } from "./interest-estimate.js";
 import type { SlipStorage } from "../lib/slip-storage.js";
 import {
   approveRequest,
@@ -21,6 +22,11 @@ import {
 
 const createBody = z.object({ amount: moneyAmount, requestedDueDate: dateOnly });
 const adminCreateBody = createBody.extend({ borrowerId: idParam });
+// the due date is optional (blank = the standard 30 days); an empty box in the form arrives as ""
+const estimateQuery = z.object({
+  amount: moneyAmount,
+  dueDate: z.preprocess((v) => (v === "" ? undefined : v), dateOnly.optional()),
+});
 const rejectBody = z.object({ reason: z.string().trim().min(1).max(500) });
 const disbursementBody = z.object({
   paidOn: dateOnly,
@@ -46,6 +52,18 @@ export function createBorrowerLoanRequestsRouter(deps: {
   onRequestCreated?: (loanRequestId: string) => void;
 }): Router {
   const router = Router();
+
+  // "How much interest would this be?" — only a calculation: nothing is saved (see interest-estimate.ts).
+  router.get(
+    "/interest-estimate",
+    deps.auth.authorizeBorrower,
+    asyncHandler(async (req, res) => {
+      const query = estimateQuery.safeParse(req.query);
+      if (!query.success) return sendError(res, 400, "VALIDATION_ERROR", firstIssue(query.error));
+      res.json(await estimateInterest(deps.prisma, { amount: query.data.amount, dueDate: query.data.dueDate }));
+    }),
+  );
+
   router.post(
     "/",
     deps.auth.authorizeBorrower,
