@@ -7,6 +7,7 @@ import { slipLimit } from "@/lib/limits";
 import { checkDate, checkMoney, formatBaht, formatDay, todayBangkok } from "@/lib/money";
 import { mySubmissionListSchema, mySubmissionSchema, type MySubmission, type SubmissionStatus } from "@/lib/schemas";
 import { useApi } from "@/lib/use-api";
+import { PaymentAccountButton } from "./PaymentAccountModal";
 import { Alert, Badge, Button, Card, Spinner, TextAreaField, TextField } from "./ui";
 
 const ACCEPTED = ["image/jpeg", "image/png"];
@@ -91,6 +92,9 @@ export function PaymentSubmitCard({ contractId, disbursedOn }: { contractId: str
       <p className="mb-3 text-sm text-slate-700">
         โอนเงินให้ผู้ให้กู้แล้ว แนบสลิปที่นี่ได้เลย <strong>ยอดค้างจะยังไม่ลดลงทันที</strong> จนกว่าผู้ให้กู้ตรวจสลิปและกดยืนยัน
       </p>
+      <div className="mb-3">
+        <PaymentAccountButton context="payment" />
+      </div>
       {sentNotice && (
         <div className="mb-3">
           <Alert kind="success">ส่งสลิปแล้ว ผู้ให้กู้จะตรวจสอบ ยอดค้างจะลดลงเมื่อผู้ให้กู้ยืนยัน</Alert>

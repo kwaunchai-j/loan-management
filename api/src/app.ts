@@ -5,6 +5,7 @@ import { createAuthRouter, type LoginRateLimitOptions } from "./auth/routes.js";
 import { createPdpaRouter } from "./auth/pdpa.js";
 import { createAdminBorrowersRouter } from "./admin/borrowers.js";
 import { createAdminSettingsRouter } from "./admin/settings.js";
+import { createAdminPaymentAccountRouter } from "./admin/payment-account.js";
 import { createBorrowerPortalRouter } from "./borrower/portal.js";
 import { createAdminReportsRouter } from "./reports/routes.js";
 import {
@@ -112,6 +113,7 @@ export function buildApp(deps?: AppDeps): CreatedApp {
       }),
     );
     app.use("/admin/settings", createAdminSettingsRouter({ prisma: deps.prisma, auth }));
+    app.use("/admin/payment-account", createAdminPaymentAccountRouter({ prisma: deps.prisma, auth }));
     app.use(
       "/loan-requests",
       createBorrowerLoanRequestsRouter({

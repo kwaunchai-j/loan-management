@@ -104,6 +104,11 @@ model Setting {
   id                       Int      @id @default(1)
   interestRatePctPerMonth  Decimal? @db.Decimal(7, 4)
   lateFeeRatePctPerDay     Decimal? @db.Decimal(7, 4)
+  // The lender's own account that borrowers transfer to (shown to borrowers, so stored as plain text).
+  // All three are set together or all are null.
+  paymentBankName          String?  @db.VarChar(100)
+  paymentAccountName       String?  @db.VarChar(150)
+  paymentAccountNo         String?  @db.VarChar(30)
   updatedById              String?
   updatedAt                DateTime @updatedAt
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { PaymentAccountCard } from "@/components/PaymentAccountCard";
 import { Alert, Button, Card, PageTitle, Spinner, TextField } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
@@ -29,6 +30,7 @@ export default function SettingsPage() {
           }}
         />
       )}
+      <PaymentAccountCard />
     </>
   );
 }

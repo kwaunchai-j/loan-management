@@ -194,6 +194,11 @@
       "Deploy บน Vercel",
       "DEPLOY-VERCEL",
       "db.datasourceUrl — เติม pgbouncer=true ให้ pooled URL ของ Neon"
+    ],
+    "payment-account.test.ts": [
+      "ผู้ยืมแจ้งชำระ + ปฏิทิน",
+      "F5 · DES-020",
+      "admin/payment-account + /me/payment-account — บัญชีรับโอนของผู้ให้กู้"
     ]
   },
   "web": {
@@ -336,6 +341,16 @@
       "Deploy บน Vercel",
       "DEPLOY-VERCEL · F5",
       "lib/limits + ฟอร์มสลิป — ขนาดสลิปปรับตาม build"
+    ],
+    "payment-account.test.tsx": [
+      "พอร์ทัลผู้ยืม",
+      "F5 · DES-020",
+      "modal บัญชีที่ต้องโอน (หน้าขอยืม/แจ้งชำระ) + ฟอร์มตั้งค่าฝั่ง admin"
+    ],
+    "modal.test.tsx": [
+      "คอมโพเนนต์กลาง",
+      "A11y",
+      "components/Modal — dialog, Escape, focus trap, scroll lock"
     ]
   }
 }

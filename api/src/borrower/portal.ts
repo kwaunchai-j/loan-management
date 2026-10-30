@@ -2,6 +2,7 @@ import express, { Router } from "express";
 import type { Db } from "../db.js";
 import type { AuthMiddleware } from "../auth/middleware.js";
 import { forbidClientBorrowerId, sessionBorrowerId } from "../auth/borrower-scope.js";
+import { SETTING_ID } from "../lib/rates.js";
 import { asyncHandler, sendError } from "../http.js";
 import { bangkokToday, formatDateOnly } from "../lib/dates.js";
 import type { FieldCipher } from "../lib/field-crypto.js";
@@ -17,6 +18,8 @@ import { z } from "zod";
  * Every route is behind `authorizeBorrower` (a BORROWER who has accepted the PDPA terms) and
  * `forbidClientBorrowerId`: the borrower is ALWAYS the one in the session, never named by the
  * client. Another borrower's record is answered as "not found", so its existence is not revealed.
+ *
+ * What a borrower is told about where to pay: the lender's own account (GET /payment-account, CR-4).
  *
  * Deliberately NOT shown to a borrower: transfer slips and who recorded what, the reason a request
  * was rejected, admin notes on payments, interest/late-fee rates, import flags, any other borrower.
@@ -71,6 +74,24 @@ export function createBorrowerPortalRouter(deps: {
       closedOn: state.closedOn ? formatDateOnly(state.closedOn) : null,
     };
   }
+
+  // Which of the lender's accounts to transfer to. Set by an ADMIN (admin/payment-account.ts); all null until then.
+  router.get(
+    "/payment-account",
+    asyncHandler(async (_req, res) => {
+      const s = await prisma.setting.findUnique({
+        where: { id: SETTING_ID },
+        select: { paymentBankName: true, paymentAccountName: true, paymentAccountNo: true },
+      });
+      const configured = !!(s?.paymentBankName && s.paymentAccountName && s.paymentAccountNo);
+      res.status(200).json({
+        configured,
+        bankName: configured ? s!.paymentBankName : null,
+        accountName: configured ? s!.paymentAccountName : null,
+        accountNo: configured ? s!.paymentAccountNo : null,
+      });
+    }),
+  );
 
   router.get(
     "/profile",

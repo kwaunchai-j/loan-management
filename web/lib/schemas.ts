@@ -45,6 +45,25 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
+/** api/src/borrower/portal.ts — GET /me/payment-account: the lender's account to transfer to (all null until the admin sets it) */
+export const paymentAccountSchema = z.object({
+  configured: z.boolean(),
+  bankName: z.string().nullable(),
+  accountName: z.string().nullable(),
+  accountNo: z.string().nullable(),
+});
+export type PaymentAccount = z.infer<typeof paymentAccountSchema>;
+
+/** api/src/admin/payment-account.ts — GET/PUT /admin/payment-account */
+export const adminPaymentAccountSchema = z.object({
+  bankName: z.string().nullable(),
+  accountName: z.string().nullable(),
+  accountNo: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+  updatedBy: z.object({ id: z.string(), username: z.string() }).nullable(),
+});
+export type AdminPaymentAccount = z.infer<typeof adminPaymentAccountSchema>;
+
 /** api/src/admin/borrowers.ts — one borrower; `account` is null for a borrower created by import */
 export const borrowerSchema = z.object({
   id: z.string(),

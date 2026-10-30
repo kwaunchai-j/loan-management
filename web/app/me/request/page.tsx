@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { InterestEstimate } from "@/components/InterestEstimate";
+import { PaymentAccountButton } from "@/components/PaymentAccountModal";
 import { RequestStatusBadge } from "@/components/status";
 import { Alert, Button, Card, PageTitle, Spinner, TextField } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/api";
@@ -15,6 +16,10 @@ export default function RequestPage() {
   return (
     <>
       <PageTitle>ขอยืมเงิน</PageTitle>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-card">
+        <p className="min-w-0 text-sm text-slate-700">ต้องโอนเงินคืนที่บัญชีไหน? ดูบัญชีของผู้ให้กู้ได้ที่นี่</p>
+        <PaymentAccountButton context="request" />
+      </div>
       {notice && <Alert kind={notice.kind}>{notice.text}</Alert>}
       <RequestForm
         onCreated={() => {

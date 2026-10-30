@@ -49,6 +49,18 @@ export function checkBankAccount(v: string): Check {
   return /^[0-9-]{6,30}$/.test(v.trim()) ? null : "เลขบัญชีไม่ถูกต้อง (ตัวเลขและขีด 6–30 ตัว)";
 }
 
+/** The lender's receiving account (mirrors api/src/admin/payment-account.ts): 5–30 characters, digits with spaces or hyphens between. */
+export function checkPaymentAccountNo(v: string): Check {
+  return /^[0-9][0-9 -]{3,28}[0-9]$/.test(v.trim()) ? null : "เลขบัญชีต้องเป็นตัวเลข 5–30 หลัก (คั่นด้วยช่องว่างหรือขีดได้)";
+}
+
+export function checkAccountName(v: string): Check {
+  const s = v.trim();
+  if (s === "") return "กรุณากรอกชื่อบัญชี";
+  if (s.length > 150) return "ชื่อบัญชียาวไม่เกิน 150 ตัวอักษร";
+  return null;
+}
+
 /** A rate in % : not negative, at most 3 digits before and 4 after the point (the column limit). */
 export function checkRate(v: string): Check {
   const s = v.trim();

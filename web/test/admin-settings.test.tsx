@@ -7,6 +7,8 @@ import { useSession } from "@/lib/session-store";
 import { admin, apiError, mockApi } from "./mocks";
 
 const unset = { interestRatePctPerMonth: null, lateFeeRatePctPerDay: null, updatedAt: null, updatedBy: null };
+// the page also shows the lender's payment account card, which reads its own endpoint
+const account = { "GET /admin/payment-account": { body: { bankName: null, accountName: null, accountNo: null, updatedAt: null, updatedBy: null } } };
 const set = {
   interestRatePctPerMonth: "5",
   lateFeeRatePctPerDay: "1.5",
@@ -16,20 +18,20 @@ const set = {
 
 describe("settings page (rates)", () => {
   it("warns that payouts and imports are impossible until both rates are set", async () => {
-    mockApi({ "GET /admin/settings": { body: unset } });
+    mockApi({ ...account, "GET /admin/settings": { body: unset } });
     render(<SettingsPage />);
     expect(await screen.findByText("ยังไม่ได้ตั้งอัตราให้ครบ")).toBeInTheDocument();
     expect(screen.getByText(/บันทึกการจ่ายเงินและนำเข้าข้อมูลไม่ได้/)).toBeInTheDocument();
   });
 
   it("warns when only one of the two rates is set", async () => {
-    mockApi({ "GET /admin/settings": { body: { ...unset, interestRatePctPerMonth: "5" } } });
+    mockApi({ ...account, "GET /admin/settings": { body: { ...unset, interestRatePctPerMonth: "5" } } });
     render(<SettingsPage />);
     expect(await screen.findByText("ยังไม่ได้ตั้งอัตราให้ครบ")).toBeInTheDocument();
   });
 
   it("shows no warning once both are set, and who changed them last", async () => {
-    mockApi({ "GET /admin/settings": { body: set } });
+    mockApi({ ...account, "GET /admin/settings": { body: set } });
     render(<SettingsPage />);
     expect(await screen.findByLabelText(/อัตราดอกเบี้ย/)).toHaveValue("5");
     expect(screen.getByLabelText(/อัตราค่าปรับ/)).toHaveValue("1.5");
@@ -57,7 +59,7 @@ describe("settings page (rates)", () => {
   });
 
   it("rejects an invalid rate before calling the API", async () => {
-    const calls = mockApi({ "GET /admin/settings": { body: unset } });
+    const calls = mockApi({ ...account, "GET /admin/settings": { body: unset } });
     render(<SettingsPage />);
     const user = userEvent.setup();
     await user.type(await screen.findByLabelText(/อัตราดอกเบี้ย/), "-3");
@@ -68,7 +70,7 @@ describe("settings page (rates)", () => {
   });
 
   it("does not call the API when nothing changed", async () => {
-    const calls = mockApi({ "GET /admin/settings": { body: set } });
+    const calls = mockApi({ ...account, "GET /admin/settings": { body: set } });
     render(<SettingsPage />);
     await userEvent.setup().click(await screen.findByRole("button", { name: "บันทึกอัตรา" }));
     expect(await screen.findByText(/ไม่มีการเปลี่ยนแปลง/)).toBeInTheDocument();
@@ -76,7 +78,7 @@ describe("settings page (rates)", () => {
   });
 
   it("treats a re-typed identical number as no change", async () => {
-    const calls = mockApi({ "GET /admin/settings": { body: set } });
+    const calls = mockApi({ ...account, "GET /admin/settings": { body: set } });
     render(<SettingsPage />);
     const user = userEvent.setup();
     const box = await screen.findByLabelText(/อัตราดอกเบี้ย/);
@@ -109,7 +111,7 @@ describe("settings page (rates)", () => {
   });
 
   it("cancelling the confirm step sends nothing", async () => {
-    const calls = mockApi({ "GET /admin/settings": { body: set } });
+    const calls = mockApi({ ...account, "GET /admin/settings": { body: set } });
     render(<SettingsPage />);
     const user = userEvent.setup();
     const box = await screen.findByLabelText(/อัตราค่าปรับ/);
@@ -134,7 +136,7 @@ describe("settings page (rates)", () => {
   });
 
   it("explains that a change only affects contracts paid out afterwards", async () => {
-    mockApi({ "GET /admin/settings": { body: set } });
+    mockApi({ ...account, "GET /admin/settings": { body: set } });
     render(<SettingsPage />);
     expect(await screen.findByText(/มีผลกับสัญญาที่จ่ายเงินหลังจากนี้เท่านั้น/)).toBeInTheDocument();
   });
@@ -143,7 +145,7 @@ describe("settings page (rates)", () => {
 describe("admin dashboard", () => {
   it("points to the settings page while rates are missing", async () => {
     useSession.setState({ status: "authenticated", user: admin });
-    mockApi({ "GET /admin/settings": { body: unset } });
+    mockApi({ ...account, "GET /admin/settings": { body: unset } });
     render(<AdminDashboard />);
     expect(await screen.findByText(/ยังไม่ได้ตั้งอัตรา/)).toBeInTheDocument();
     expect(document.querySelector('a[href="/admin/settings"]')).not.toBeNull();

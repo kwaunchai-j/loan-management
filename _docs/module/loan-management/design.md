@@ -121,6 +121,10 @@ model Setting {
   id                       Int      @id @default(1)
   interestRatePctPerMonth  Decimal? @db.Decimal(7, 4)
   lateFeeRatePctPerDay     Decimal? @db.Decimal(7, 4)
+  // CR-4: บัญชีรับโอนของผู้ให้กู้ที่แสดงให้ผู้ยืม — ตั้งครบสามช่องหรือเป็น null ทั้งหมด
+  paymentBankName          String?  @db.VarChar(100)
+  paymentAccountName       String?  @db.VarChar(150)
+  paymentAccountNo         String?  @db.VarChar(30)
   updatedById              String?
   updatedAt                DateTime @updatedAt
 
@@ -387,6 +391,12 @@ model PaymentSubmission {
 - ยังไม่ตั้งอัตรา → 409 `RATES_NOT_SET` ด้วยข้อความที่ผู้ยืมทำตามได้ ("กรุณาติดต่อผู้ให้กู้"); ยอดที่ผลลัพธ์เกิน Decimal(14,2) → 400 `LIMIT_EXCEEDED`
 - หน้า `/me/request` แสดงกล่อง "ดอกเบี้ยโดยประมาณ" ใต้ช่องจำนวนเงินทันทีที่กรอกจำนวนเงินถูกต้อง (หน่วงเวลาพิมพ์ 400 มิลลิวินาที); Data Model ไม่เปลี่ยน
 
+**DES-020 บัญชีรับโอนของผู้ให้กู้ (CR-4; อ้าง F5)**
+- เก็บในแถว `Setting` เดียวกับอัตรา (คอลัมน์ `paymentBankName`, `paymentAccountName`, `paymentAccountNo` — additive, nullable) เป็น **ข้อความธรรมดา ไม่เข้ารหัส** เพราะตั้งใจให้ผู้ยืมเห็น; ตั้งครบทั้ง 3 ช่องหรือล้างทั้งหมด (ครึ่งบัญชีถูกปฏิเสธ และถ้าในฐานข้อมูลมีไม่ครบ ผู้ยืมจะเห็นว่า "ยังไม่ได้ตั้ง" ไม่เห็นบางส่วน)
+- admin: `GET/PUT /admin/payment-account` (ADMIN เท่านั้น) — PUT ต้องส่งครบทั้ง 3 ฟิลด์ (สตริงหรือ null) เพื่อไม่ให้ body ว่างลบบัญชีโดยไม่ตั้งใจ; เลขบัญชี 5–30 ตัว เป็นตัวเลขคั่นด้วยช่องว่างหรือขีดได้; เขียน AuditLog `setting.paymentAccount.update` พร้อม before/after แต่เก็บเลขบัญชีเพียง 4 ตัวท้าย
+- ผู้ยืม: `GET /me/payment-account` (ผู้ยืมที่ยอมรับ PDPA แล้ว) ตอบ `{configured, bankName, accountName, accountNo}`; ไม่แสดงข้อมูลอื่นของ `Setting`
+- หน้าเว็บ: ปุ่ม "ดูบัญชีที่ต้องโอนเงิน" เปิด modal ที่ `/me/request` และในฟอร์ม "แจ้งชำระเงิน" ของหน้าสัญญา (ขอข้อมูลจาก API ทุกครั้งที่เปิด จึงเห็นการเปลี่ยนแปลงทันที; ปุ่มคัดลอกเลขบัญชีคัดลอกเฉพาะตัวเลข); admin ตั้งที่หน้า "ตั้งค่าอัตรา" การเปลี่ยนหรือลบบัญชีที่ใช้อยู่ต้องกดยืนยันซ้ำ
+
 ## Notification Rules
 
 **DES-013 (อ้าง F7)** ผู้รับคือ `ADMIN` เพียงคนเดียว ผ่าน LINE (Messaging API push ไปที่ `User.lineUserId`) และ Web Push (`PushSubscription`) ทั้งสองช่องทาง; ผู้ยืมไม่ได้รับแจ้งเตือนใดๆ
@@ -473,3 +483,4 @@ model PaymentSubmission {
 | 2026-10-30 | change request CR-2 ตามที่ผู้ใช้สั่ง "จำนวนรวมปัดเศษให้เต็มบาท" และยืนยัน "ปัดขึ้นอย่างเดียวไม่ปัดลง": ดอกเบี้ย (DES-010) และค่าปรับรายวัน (DES-012) ปัดขึ้นเป็นบาทเต็มแทนปัดขึ้น 2 ตำแหน่ง; Data Model ไม่เปลี่ยน (คอลัมน์ Decimal(14,2) เก็บค่าบาทเต็มได้); สัญญาเดิมที่ยังเปิดอยู่จะคำนวณค่าปรับใหม่ตามกฎนี้ตอนคำนวณซ้ำครั้งถัดไป; ยอดที่ผู้ยืมโอนเป็นสตางค์ยังบันทึกได้ (ห้ามจ่ายเกินยังคงเดิม) | system-analyst |
 | 2026-10-31 | change request CR-3 ตามที่ผู้ใช้สั่ง "ผู้ยืมเช็คดูดอกเบี้ยได้ด้วยการกรอกยอดที่ต้องการยืมที่หน้าขอยืม": เพิ่ม DES-019 endpoint ประมาณดอกเบี้ย (ใช้สูตร DES-010 เดิม ไม่บันทึกข้อมูล) และกล่องประมาณการที่หน้า /me/request; Data Model ไม่เปลี่ยน | system-analyst |
 | 2026-10-31 | ปรับให้ deploy บน Vercel แยก FE/BE ตามที่ผู้ใช้สั่ง (ไม่ใช่ฟีเจอร์ใหม่ ไม่เปลี่ยน Data Model): เพิ่ม `STORAGE_BACKEND=blob` (สลิป/ไฟล์นำเข้าใน Vercel Blob แบบ private ผ่าน interface `SlipStorage`/`ImportStorage` เดิม), เส้นทาง `/cron/*` ป้องกันด้วย `CRON_SECRET` ให้ Vercel Cron เรียกงานกลางคืนแทน scheduler ในโปรเซส, entry `src/vercel.ts`, ขนาดสลิปปรับได้ (4 MB บน Vercel เพราะ request body จำกัด 4.5 MB); การจำกัดการเดารหัสผ่านบน serverless ใช้ Vercel Firewall ตามที่ผู้ใช้เลือก (ตัวจำกัดในหน่วยความจำคงเดิมสำหรับ Docker); ดู `DEPLOY-VERCEL.md` | system-analyst |
+| 2026-10-31 | change request CR-4 ตามที่ผู้ใช้สั่งและยืนยัน (เพิ่มช่องในหน้าตั้งค่า; modal ที่หน้าขอยืมและฟอร์มแจ้งชำระ): **แก้ Data Model 1 จุด — `Setting` เพิ่มคอลัมน์ nullable `paymentBankName`, `paymentAccountName`, `paymentAccountNo` (additive, migration `20261030204608_setting_payment_account`)** และเพิ่ม DES-020 | system-analyst |
