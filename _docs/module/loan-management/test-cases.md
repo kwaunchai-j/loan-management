@@ -1,7 +1,7 @@
 # ชุดทดสอบ (Test Cases) — ระบบขอยืมเงิน
 
 > เอกสารนี้ **สร้างจากการรันเทสต์จริง** ด้วย `tools/gen-test-catalog.mjs` — ทุกแถวคือเทสต์อัตโนมัติที่มีอยู่และรันได้ ไม่มีเคสที่เป็นแค่คำอธิบาย
-> สร้างเมื่อ 2026-10-30 · ผลรัน: API 626 เคส, Web 466 เคส · ผ่านทั้งหมด
+> สร้างเมื่อ 2026-10-31 · ผลรัน: API 656 เคส, Web 481 เคส · ผ่านทั้งหมด
 
 ## 1. วิธีรัน
 
@@ -55,7 +55,8 @@
 | ผู้ใช้และสิทธิ์ | `audit.test.ts` | F1 · F5 | lib/audit — AuditLog ใน transaction เดียวกับการเปลี่ยนข้อมูล | 13 |
 | ผู้ใช้และสิทธิ์ | `auth-lib.test.ts` | F1 | lib/password, session — scrypt, นโยบายรหัสผ่าน, token | 15 |
 | ผู้ใช้และสิทธิ์ | `auth.test.ts` | F1 | auth/routes — login/logout/me/เปลี่ยนรหัส, cookie, สิทธิ์ | 11 |
-| ผู้ใช้และสิทธิ์ | `borrowers.test.ts` | F1 · F8 | borrowers/* — สร้าง/แก้ผู้ยืม, บัญชี, ข้อมูลส่วนบุคคลเข้ารหัส | 20 |
+| ผู้ใช้และสิทธิ์ | `borrower-profile.test.ts` | F1 · F3 · DES-021 | borrower/portal PATCH /me/profile + กั้นการขอยืม — ผู้ยืมกรอกเบอร์/เลขบัญชีเอง | 28 |
+| ผู้ใช้และสิทธิ์ | `borrowers.test.ts` | F1 · F8 | borrowers/* — สร้าง/แก้ผู้ยืม, บัญชี, ข้อมูลส่วนบุคคลเข้ารหัส | 22 |
 | ผู้ใช้และสิทธิ์ | `field-crypto.test.ts` | F1 · PDPA | lib/field-crypto — AES-GCM เข้ารหัสฟิลด์ | 8 |
 | ผู้ใช้และสิทธิ์ | `login-throttle.test.ts` | F1 | auth/throttle — จำกัดการเดารหัสผ่าน | 7 |
 | ผู้ใช้และสิทธิ์ | `pdpa.test.ts` | F1 · PDPA | pdpa/* — ความยินยอม, เวอร์ชันข้อความ | 8 |
@@ -72,7 +73,7 @@
 | Deploy บน Vercel | `cron-routes.test.ts` | DEPLOY-VERCEL · F6 · F7 | jobs/cron-routes — งานกลางคืนเรียกผ่าน HTTP ด้วย CRON_SECRET | 16 |
 | Deploy บน Vercel | `db-url.test.ts` | DEPLOY-VERCEL | db.datasourceUrl — เติม pgbouncer=true ให้ pooled URL ของ Neon | 4 |
 | Deploy บน Vercel | `vercel-entry.test.ts` | DEPLOY-VERCEL | vercel.ts + bootstrap — entry ของ Vercel Function | 8 |
-| **รวม** | 40 ไฟล์ | | | **626** |
+| **รวม** | 41 ไฟล์ | | | **656** |
 
 ### รายการเคสทั้งหมด
 
@@ -542,445 +543,482 @@
 | API-23-010 | auth (PostgreSQL) › mustChangePassword and change-password | blocks business routes until the password is changed | ✓ |
 | API-23-011 | auth (PostgreSQL) › mustChangePassword and change-password | rejects weak, wrong-current and unchanged passwords | ✓ |
 
-#### API-24 · `borrowers.test.ts` — borrowers/* — สร้าง/แก้ผู้ยืม, บัญชี, ข้อมูลส่วนบุคคลเข้ารหัส
+#### API-24 · `borrower-profile.test.ts` — borrower/portal PATCH /me/profile + กั้นการขอยืม — ผู้ยืมกรอกเบอร์/เลขบัญชีเอง
+
+อ้างอิง: F1 · F3 · DES-021
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| API-24-001 | the borrower fills in their own details (PostgreSQL) › GET /me/profile | says the profile is not complete while phone, bank or account number is missing | ✓ |
+| API-24-002 | the borrower fills in their own details (PostgreSQL) › GET /me/profile | says it is complete once all three are there, and shows the borrower their own number | ✓ |
+| API-24-003 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | fills in the three details, stores the account number encrypted, and the profile becomes complete | ✓ |
+| API-24-004 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | can fill in one detail at a time and leaves the others alone | ✓ |
+| API-24-005 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | can correct a detail that was already there | ✓ |
+| API-24-006 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses a phone with letters and saves nothing | ✓ |
+| API-24-007 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses a phone that is too short and saves nothing | ✓ |
+| API-24-008 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses an empty phone and saves nothing | ✓ |
+| API-24-009 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses an empty bank name and saves nothing | ✓ |
+| API-24-010 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses a bank name over 100 characters and saves nothing | ✓ |
+| API-24-011 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses an account number with letters and saves nothing | ✓ |
+| API-24-012 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses an account number that is too short and saves nothing | ✓ |
+| API-24-013 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses an empty account number and saves nothing | ✓ |
+| API-24-014 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses a number instead of text and saves nothing | ✓ |
+| API-24-015 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | refuses an empty body, and one that only tries to change something that is not theirs | ✓ |
+| API-24-016 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | ignores the name even when it is sent along with real details | ✓ |
+| API-24-017 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | works only on the borrower in the session: naming another borrower is refused and changes nothing | ✓ |
+| API-24-018 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | is for borrowers who accepted the PDPA terms: a visitor gets 401, an admin 403, an unconsented borrower 403 | ✓ |
+| API-24-019 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | writes an audit row by the borrower, naming the fields and masking the account number | ✓ |
+| API-24-020 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | is refused with PROFILE_INCOMPLETE, and no request is saved | ✓ |
+| API-24-021 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | is refused when there is no phone | ✓ |
+| API-24-022 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | is refused when there is no bank | ✓ |
+| API-24-023 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | is refused when there is no account number | ✓ |
+| API-24-024 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | goes through once the borrower has filled the three in themself | ✓ |
+| API-24-025 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | does not touch a borrower whose profile is already complete | ✓ |
+| API-24-026 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | does not stop the lender from filing a request for a borrower (the admin route is not gated) | ✓ |
+| API-24-027 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | does not stop the borrower from asking what the interest would be | ✓ |
+| API-24-028 | the borrower fills in their own details (PostgreSQL) › the whole path: the admin creates the account, the borrower comes in and fills in their own details | works from the admin form to a loan request | ✓ |
+
+#### API-25 · `borrowers.test.ts` — borrowers/* — สร้าง/แก้ผู้ยืม, บัญชี, ข้อมูลส่วนบุคคลเข้ารหัส
 
 อ้างอิง: F1 · F8
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-24-001 | admin borrower management (PostgreSQL) › access | is for ADMIN only | ✓ |
-| API-24-002 | admin borrower management (PostgreSQL) › create | creates the login and the borrower, returns the bank account to the admin only | ✓ |
-| API-24-003 | admin borrower management (PostgreSQL) › create | stores the account number encrypted, never in plain text (decision D1) | ✓ |
-| API-24-004 | admin borrower management (PostgreSQL) › create | keeps only the last 4 digits in the audit log, and says which fields changed | ✓ |
-| API-24-005 | admin borrower management (PostgreSQL) › create | lets the new borrower log in and forces a password change | ✓ |
-| API-24-006 | admin borrower management (PostgreSQL) › create | writes an audit row without any password | ✓ |
-| API-24-007 | admin borrower management (PostgreSQL) › create | requires every field the admin page must collect | ✓ |
-| API-24-008 | admin borrower management (PostgreSQL) › create | rejects weak passwords and malformed phone, account number and username | ✓ |
-| API-24-009 | admin borrower management (PostgreSQL) › create | rejects a username that exists, ignoring case, and creates nothing | ✓ |
-| API-24-010 | admin borrower management (PostgreSQL) › create | allows two different borrowers with the same full name | ✓ |
-| API-24-011 | admin borrower management (PostgreSQL) › list and get | lists, searches by name, paginates, and shows imported borrowers without an account | ✓ |
-| API-24-012 | admin borrower management (PostgreSQL) › list and get | returns one borrower or 404 | ✓ |
-| API-24-013 | admin borrower management (PostgreSQL) › update | changes only the given fields and audits before/after | ✓ |
-| API-24-014 | admin borrower management (PostgreSQL) › update | rejects empty updates, nulls and bad values without writing anything | ✓ |
-| API-24-015 | admin borrower management (PostgreSQL) › update | can fill in the details of an imported borrower | ✓ |
-| API-24-016 | admin borrower management (PostgreSQL) › deactivate and reactivate | blocks login and kills the live session, and can be undone | ✓ |
-| API-24-017 | admin borrower management (PostgreSQL) › deactivate and reactivate | rejects bad input and borrowers with no account | ✓ |
-| API-24-018 | admin borrower management (PostgreSQL) › reset password | sets a temporary password, forces a change and ends old sessions | ✓ |
-| API-24-019 | admin borrower management (PostgreSQL) › reset password | rejects weak passwords and borrowers with no account | ✓ |
-| API-24-020 | admin borrower management (PostgreSQL) › borrower scope (lib:borrower-scope) | uses the session borrower and refuses a borrowerId sent by the client | ✓ |
+| API-25-001 | admin borrower management (PostgreSQL) › access | is for ADMIN only | ✓ |
+| API-25-002 | admin borrower management (PostgreSQL) › create | creates the login and the borrower, returns the bank account to the admin only | ✓ |
+| API-25-003 | admin borrower management (PostgreSQL) › create | stores the account number encrypted, never in plain text (decision D1) | ✓ |
+| API-25-004 | admin borrower management (PostgreSQL) › create | keeps only the last 4 digits in the audit log, and says which fields changed | ✓ |
+| API-25-005 | admin borrower management (PostgreSQL) › create | lets the new borrower log in and forces a password change | ✓ |
+| API-25-006 | admin borrower management (PostgreSQL) › create | writes an audit row without any password | ✓ |
+| API-25-007 | admin borrower management (PostgreSQL) › create | requires only the login and the name: the borrower fills in phone and account number themself (CR-5) | ✓ |
+| API-25-008 | admin borrower management (PostgreSQL) › create | creates the account with the name alone, leaving phone, bank and account number empty | ✓ |
+| API-25-009 | admin borrower management (PostgreSQL) › create | still accepts them when the admin does give them (the account number stored encrypted), and still checks what is given | ✓ |
+| API-25-010 | admin borrower management (PostgreSQL) › create | rejects weak passwords and malformed phone, account number and username | ✓ |
+| API-25-011 | admin borrower management (PostgreSQL) › create | rejects a username that exists, ignoring case, and creates nothing | ✓ |
+| API-25-012 | admin borrower management (PostgreSQL) › create | allows two different borrowers with the same full name | ✓ |
+| API-25-013 | admin borrower management (PostgreSQL) › list and get | lists, searches by name, paginates, and shows imported borrowers without an account | ✓ |
+| API-25-014 | admin borrower management (PostgreSQL) › list and get | returns one borrower or 404 | ✓ |
+| API-25-015 | admin borrower management (PostgreSQL) › update | changes only the given fields and audits before/after | ✓ |
+| API-25-016 | admin borrower management (PostgreSQL) › update | rejects empty updates, nulls and bad values without writing anything | ✓ |
+| API-25-017 | admin borrower management (PostgreSQL) › update | can fill in the details of an imported borrower | ✓ |
+| API-25-018 | admin borrower management (PostgreSQL) › deactivate and reactivate | blocks login and kills the live session, and can be undone | ✓ |
+| API-25-019 | admin borrower management (PostgreSQL) › deactivate and reactivate | rejects bad input and borrowers with no account | ✓ |
+| API-25-020 | admin borrower management (PostgreSQL) › reset password | sets a temporary password, forces a change and ends old sessions | ✓ |
+| API-25-021 | admin borrower management (PostgreSQL) › reset password | rejects weak passwords and borrowers with no account | ✓ |
+| API-25-022 | admin borrower management (PostgreSQL) › borrower scope (lib:borrower-scope) | uses the session borrower and refuses a borrowerId sent by the client | ✓ |
 
-#### API-25 · `field-crypto.test.ts` — lib/field-crypto — AES-GCM เข้ารหัสฟิลด์
+#### API-26 · `field-crypto.test.ts` — lib/field-crypto — AES-GCM เข้ารหัสฟิลด์
 
 อ้างอิง: F1 · PDPA
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-25-001 | FieldCipher | round-trips values, including Thai text and digits with dashes | ✓ |
-| API-25-002 | FieldCipher | never stores the plaintext and uses a fresh IV every time | ✓ |
-| API-25-003 | FieldCipher | rejects tampered ciphertext, tag or IV | ✓ |
-| API-25-004 | FieldCipher | cannot be read with another key | ✓ |
-| API-25-005 | FieldCipher | refuses to treat a plain or malformed value as encrypted | ✓ |
-| API-25-006 | FieldCipher | requires a 32-byte key | ✓ |
-| API-25-007 | maskAccountNumber | keeps only the last 4 digits | ✓ |
-| API-25-008 | maskAccountNumber | hides short values entirely | ✓ |
+| API-26-001 | FieldCipher | round-trips values, including Thai text and digits with dashes | ✓ |
+| API-26-002 | FieldCipher | never stores the plaintext and uses a fresh IV every time | ✓ |
+| API-26-003 | FieldCipher | rejects tampered ciphertext, tag or IV | ✓ |
+| API-26-004 | FieldCipher | cannot be read with another key | ✓ |
+| API-26-005 | FieldCipher | refuses to treat a plain or malformed value as encrypted | ✓ |
+| API-26-006 | FieldCipher | requires a 32-byte key | ✓ |
+| API-26-007 | maskAccountNumber | keeps only the last 4 digits | ✓ |
+| API-26-008 | maskAccountNumber | hides short values entirely | ✓ |
 
-#### API-26 · `login-throttle.test.ts` — auth/throttle — จำกัดการเดารหัสผ่าน
+#### API-27 · `login-throttle.test.ts` — auth/throttle — จำกัดการเดารหัสผ่าน
 
 อ้างอิง: F1
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-26-001 | login throttling (PostgreSQL) | stops a guesser on their own IP without locking the real owner out | ✓ |
-| API-26-002 | login throttling (PostgreSQL) | still bounds a guess spread over many IPs with a higher per-username ceiling | ✓ |
-| API-26-003 | login throttling (PostgreSQL) | does not let a successful login wipe the per-username ceiling | ✓ |
-| API-26-004 | login throttling (PostgreSQL) | a success clears the counter of that username and IP only | ✓ |
-| API-26-005 | login throttling (PostgreSQL) | ignores X-Forwarded-For when no proxy is trusted, so it cannot be spoofed to dodge the limit | ✓ |
-| API-26-006 | login throttling (PostgreSQL) | limits password spraying from one IP across different usernames | ✓ |
-| API-26-007 | login throttling (PostgreSQL) | throttles wrong current-password guesses on change-password | ✓ |
+| API-27-001 | login throttling (PostgreSQL) | stops a guesser on their own IP without locking the real owner out | ✓ |
+| API-27-002 | login throttling (PostgreSQL) | still bounds a guess spread over many IPs with a higher per-username ceiling | ✓ |
+| API-27-003 | login throttling (PostgreSQL) | does not let a successful login wipe the per-username ceiling | ✓ |
+| API-27-004 | login throttling (PostgreSQL) | a success clears the counter of that username and IP only | ✓ |
+| API-27-005 | login throttling (PostgreSQL) | ignores X-Forwarded-For when no proxy is trusted, so it cannot be spoofed to dodge the limit | ✓ |
+| API-27-006 | login throttling (PostgreSQL) | limits password spraying from one IP across different usernames | ✓ |
+| API-27-007 | login throttling (PostgreSQL) | throttles wrong current-password guesses on change-password | ✓ |
 
-#### API-27 · `pdpa.test.ts` — pdpa/* — ความยินยอม, เวอร์ชันข้อความ
+#### API-28 · `pdpa.test.ts` — pdpa/* — ความยินยอม, เวอร์ชันข้อความ
 
 อ้างอิง: F1 · PDPA
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-27-001 | PDPA gate (PostgreSQL) | keeps a borrower who has not accepted out of every borrower endpoint | ✓ |
-| API-27-002 | PDPA gate (PostgreSQL) | reports the status on /pdpa and /auth/me | ✓ |
-| API-27-003 | PDPA gate (PostgreSQL) | records time and version on acceptance and then opens the borrower endpoints | ✓ |
-| API-27-004 | PDPA gate (PostgreSQL) | accepting again does not overwrite the original time or version | ✓ |
-| API-27-005 | PDPA gate (PostgreSQL) | rejects a missing or stale version and does not record anything | ✓ |
-| API-27-006 | PDPA gate (PostgreSQL) | only ever changes the logged-in borrower, ignoring ids from the client | ✓ |
-| API-27-007 | PDPA gate (PostgreSQL) | requires login and a BORROWER account with a borrower profile | ✓ |
-| API-27-008 | PDPA gate (PostgreSQL) | still requires the first password change before the PDPA step | ✓ |
+| API-28-001 | PDPA gate (PostgreSQL) | keeps a borrower who has not accepted out of every borrower endpoint | ✓ |
+| API-28-002 | PDPA gate (PostgreSQL) | reports the status on /pdpa and /auth/me | ✓ |
+| API-28-003 | PDPA gate (PostgreSQL) | records time and version on acceptance and then opens the borrower endpoints | ✓ |
+| API-28-004 | PDPA gate (PostgreSQL) | accepting again does not overwrite the original time or version | ✓ |
+| API-28-005 | PDPA gate (PostgreSQL) | rejects a missing or stale version and does not record anything | ✓ |
+| API-28-006 | PDPA gate (PostgreSQL) | only ever changes the logged-in borrower, ignoring ids from the client | ✓ |
+| API-28-007 | PDPA gate (PostgreSQL) | requires login and a BORROWER account with a borrower profile | ✓ |
+| API-28-008 | PDPA gate (PostgreSQL) | still requires the first password change before the PDPA step | ✓ |
 
-#### API-28 · `payment-account.test.ts` — admin/payment-account + /me/payment-account — บัญชีรับโอนของผู้ให้กู้
+#### API-29 · `payment-account.test.ts` — admin/payment-account + /me/payment-account — บัญชีรับโอนของผู้ให้กู้
 
 อ้างอิง: F5 · DES-020
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-28-001 | the lender's payment account (PostgreSQL) › the admin sets it | starts empty | ✓ |
-| API-28-002 | the lender's payment account (PostgreSQL) › the admin sets it | saves the account, returns it with who changed it, and it persists | ✓ |
-| API-28-003 | the lender's payment account (PostgreSQL) › the admin sets it | trims the text it is given | ✓ |
-| API-28-004 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "1234567890" | ✓ |
-| API-28-005 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "123-4-56789-0" | ✓ |
-| API-28-006 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "123 4 56789 0" | ✓ |
-| API-28-007 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "12345" | ✓ |
-| API-28-008 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "111111111111111111111111111111" | ✓ |
-| API-28-009 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "" | ✓ |
-| API-28-010 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "abc" | ✓ |
-| API-28-011 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "1234" | ✓ |
-| API-28-012 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "12-" | ✓ |
-| API-28-013 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "-1234567" | ✓ |
-| API-28-014 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "1234A67890" | ✓ |
-| API-28-015 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "123_456_789" | ✓ |
-| API-28-016 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "1111111111111111111111111111111" | ✓ |
-| API-28-017 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "12 34 5\n6789" | ✓ |
-| API-28-018 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "<script>alert(1)</script>" | ✓ |
-| API-28-019 | the lender's payment account (PostgreSQL) › the admin sets it | refuses half an account: all three parts or none | ✓ |
-| API-28-020 | the lender's payment account (PostgreSQL) › the admin sets it | refuses parts that are too long, are not text, or are missing from the body (an empty body never wipes the account) | ✓ |
-| API-28-021 | the lender's payment account (PostgreSQL) › the admin sets it | blank or null in all three parts removes the account | ✓ |
-| API-28-022 | the lender's payment account (PostgreSQL) › the admin sets it | replaces an earlier account (it is one account for the system) | ✓ |
-| API-28-023 | the lender's payment account (PostgreSQL) › the admin sets it | is for the ADMIN only (visitor 401, borrower 403) for reading and for changing | ✓ |
-| API-28-024 | the lender's payment account (PostgreSQL) › the admin sets it | works when no Setting row exists yet (a fresh system) | ✓ |
-| API-28-025 | the lender's payment account (PostgreSQL) › the admin sets it | writes an audit row with who, before and after — but only the last 4 digits of the number | ✓ |
-| API-28-026 | the lender's payment account (PostgreSQL) › the admin sets it | leaves the rates alone, and a rates change leaves the account alone | ✓ |
-| API-28-027 | the lender's payment account (PostgreSQL) › the borrower reads it | sees the account once the admin has set it, and nothing else | ✓ |
-| API-28-028 | the lender's payment account (PostgreSQL) › the borrower reads it | is told 'not configured' (all null) until then | ✓ |
-| API-28-029 | the lender's payment account (PostgreSQL) › the borrower reads it | never shows half an account, even if the row was filled in by hand | ✓ |
-| API-28-030 | the lender's payment account (PostgreSQL) › the borrower reads it | follows a change at once | ✓ |
-| API-28-031 | the lender's payment account (PostgreSQL) › the borrower reads it | is for borrowers who have accepted the PDPA terms: a visitor gets 401, an admin 403, others 403 | ✓ |
+| API-29-001 | the lender's payment account (PostgreSQL) › the admin sets it | starts empty | ✓ |
+| API-29-002 | the lender's payment account (PostgreSQL) › the admin sets it | saves the account, returns it with who changed it, and it persists | ✓ |
+| API-29-003 | the lender's payment account (PostgreSQL) › the admin sets it | trims the text it is given | ✓ |
+| API-29-004 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "1234567890" | ✓ |
+| API-29-005 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "123-4-56789-0" | ✓ |
+| API-29-006 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "123 4 56789 0" | ✓ |
+| API-29-007 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "12345" | ✓ |
+| API-29-008 | the lender's payment account (PostgreSQL) › the admin sets it | accepts the account number "111111111111111111111111111111" | ✓ |
+| API-29-009 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "" | ✓ |
+| API-29-010 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "abc" | ✓ |
+| API-29-011 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "1234" | ✓ |
+| API-29-012 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "12-" | ✓ |
+| API-29-013 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "-1234567" | ✓ |
+| API-29-014 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "1234A67890" | ✓ |
+| API-29-015 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "123_456_789" | ✓ |
+| API-29-016 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "1111111111111111111111111111111" | ✓ |
+| API-29-017 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "12 34 5\n6789" | ✓ |
+| API-29-018 | the lender's payment account (PostgreSQL) › the admin sets it | refuses the account number "<script>alert(1)</script>" | ✓ |
+| API-29-019 | the lender's payment account (PostgreSQL) › the admin sets it | refuses half an account: all three parts or none | ✓ |
+| API-29-020 | the lender's payment account (PostgreSQL) › the admin sets it | refuses parts that are too long, are not text, or are missing from the body (an empty body never wipes the account) | ✓ |
+| API-29-021 | the lender's payment account (PostgreSQL) › the admin sets it | blank or null in all three parts removes the account | ✓ |
+| API-29-022 | the lender's payment account (PostgreSQL) › the admin sets it | replaces an earlier account (it is one account for the system) | ✓ |
+| API-29-023 | the lender's payment account (PostgreSQL) › the admin sets it | is for the ADMIN only (visitor 401, borrower 403) for reading and for changing | ✓ |
+| API-29-024 | the lender's payment account (PostgreSQL) › the admin sets it | works when no Setting row exists yet (a fresh system) | ✓ |
+| API-29-025 | the lender's payment account (PostgreSQL) › the admin sets it | writes an audit row with who, before and after — but only the last 4 digits of the number | ✓ |
+| API-29-026 | the lender's payment account (PostgreSQL) › the admin sets it | leaves the rates alone, and a rates change leaves the account alone | ✓ |
+| API-29-027 | the lender's payment account (PostgreSQL) › the borrower reads it | sees the account once the admin has set it, and nothing else | ✓ |
+| API-29-028 | the lender's payment account (PostgreSQL) › the borrower reads it | is told 'not configured' (all null) until then | ✓ |
+| API-29-029 | the lender's payment account (PostgreSQL) › the borrower reads it | never shows half an account, even if the row was filled in by hand | ✓ |
+| API-29-030 | the lender's payment account (PostgreSQL) › the borrower reads it | follows a change at once | ✓ |
+| API-29-031 | the lender's payment account (PostgreSQL) › the borrower reads it | is for borrowers who have accepted the PDPA terms: a visitor gets 401, an admin 403, others 403 | ✓ |
 
-#### API-29 · `submissions.test.ts` — loans/submissions, calendar — ผู้ยืมส่งสลิป admin ยืนยัน, ปฏิทิน
+#### API-30 · `submissions.test.ts` — loans/submissions, calendar — ผู้ยืมส่งสลิป admin ยืนยัน, ปฏิทิน
 
 อ้างอิง: F5-CR1 · F11 · DES-017 · DES-018
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-29-001 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | records a CLAIM with the slip, answers with the status only, and changes no balance | ✓ |
-| API-29-002 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | decides the file type from its bytes: a JPEG is accepted whatever the client calls it | ✓ |
-| API-29-003 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | refuses anything that is not a JPEG or PNG image, and writes nothing | ✓ |
-| API-29-004 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | refuses a file over the size limit | ✓ |
-| API-29-005 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | checks the amount, the date and the note | ✓ |
-| API-29-006 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | works only on an open contract that belongs to the borrower | ✓ |
-| API-29-007 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | needs a logged-in borrower who accepted the PDPA terms, and the borrower is never named by the client | ✓ |
-| API-29-008 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | caps the claims waiting at once, even when they arrive in parallel | ✓ |
-| API-29-009 | borrower payment slips (CR-1, PostgreSQL) › what the borrower can see | lists only their own claims, with no slip key and no one else's data | ✓ |
-| API-29-010 | borrower payment slips (CR-1, PostgreSQL) › what the borrower can see | a borrower can never open the slip (slips are ADMIN-only), not even their own | ✓ |
-| API-29-011 | borrower payment slips (CR-1, PostgreSQL) › the admin's queue | lists claims oldest first with the slip key, filtered by status or contract, for ADMIN only | ✓ |
-| API-29-012 | borrower payment slips (CR-1, PostgreSQL) › confirming | records a REAL payment through the ledger and marks the claim confirmed, together | ✓ |
-| API-29-013 | borrower payment slips (CR-1, PostgreSQL) › confirming | lets the admin correct the amount, date and note before confirming (the claim is only a claim) | ✓ |
-| API-29-014 | borrower payment slips (CR-1, PostgreSQL) › confirming | if the ledger refuses (more than is owed) NOTHING changes and the claim keeps waiting | ✓ |
-| API-29-015 | borrower payment slips (CR-1, PostgreSQL) › confirming | refuses a date before the payout, and a contract that closed in the meantime, leaving the claim waiting | ✓ |
-| API-29-016 | borrower payment slips (CR-1, PostgreSQL) › confirming | a claim is decided exactly once, even when two admins press the button together | ✓ |
-| API-29-017 | borrower payment slips (CR-1, PostgreSQL) › confirming | validates the corrections and the id, and is ADMIN only | ✓ |
-| API-29-018 | borrower payment slips (CR-1, PostgreSQL) › confirming | deleting the payment later keeps the claim as confirmed history (the link is just cleared) | ✓ |
-| API-29-019 | borrower payment slips (CR-1, PostgreSQL) › rejecting | needs a reason, records it, and shows it to the borrower | ✓ |
-| API-29-020 | borrower payment slips (CR-1, PostgreSQL) › rejecting | a decided claim cannot be decided again, and a rejected one frees a place under the limit | ✓ |
-| API-29-021 | borrower payment slips (CR-1, PostgreSQL) › rejecting | is ADMIN only and answers 404 for an unknown id | ✓ |
-| API-29-022 | borrower payment slips (CR-1, PostgreSQL) › telling the admin | sends one message when a slip arrives, naming the borrower, the contract and the amount | ✓ |
-| API-29-023 | borrower payment slips (CR-1, PostgreSQL) › telling the admin | sends nothing for a refused upload, and nothing about a claim that is no longer waiting | ✓ |
-| API-29-024 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | puts each contract on its due date and each payment on the day it was paid | ✓ |
-| API-29-025 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | shows what is still owed on an open contract and nothing owed on a settled one, and sums them with the ledger's own numbers | ✓ |
-| API-29-026 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | flags a contract past its due date, in the month of its due date | ✓ |
-| API-29-027 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | does not list contracts that were never paid out, or cancelled | ✓ |
-| API-29-028 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | defaults to the current month, validates the month, and is ADMIN only | ✓ |
-| API-29-029 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | a month with nothing in it is simply empty | ✓ |
+| API-30-001 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | records a CLAIM with the slip, answers with the status only, and changes no balance | ✓ |
+| API-30-002 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | decides the file type from its bytes: a JPEG is accepted whatever the client calls it | ✓ |
+| API-30-003 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | refuses anything that is not a JPEG or PNG image, and writes nothing | ✓ |
+| API-30-004 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | refuses a file over the size limit | ✓ |
+| API-30-005 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | checks the amount, the date and the note | ✓ |
+| API-30-006 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | works only on an open contract that belongs to the borrower | ✓ |
+| API-30-007 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | needs a logged-in borrower who accepted the PDPA terms, and the borrower is never named by the client | ✓ |
+| API-30-008 | borrower payment slips (CR-1, PostgreSQL) › sending a slip | caps the claims waiting at once, even when they arrive in parallel | ✓ |
+| API-30-009 | borrower payment slips (CR-1, PostgreSQL) › what the borrower can see | lists only their own claims, with no slip key and no one else's data | ✓ |
+| API-30-010 | borrower payment slips (CR-1, PostgreSQL) › what the borrower can see | a borrower can never open the slip (slips are ADMIN-only), not even their own | ✓ |
+| API-30-011 | borrower payment slips (CR-1, PostgreSQL) › the admin's queue | lists claims oldest first with the slip key, filtered by status or contract, for ADMIN only | ✓ |
+| API-30-012 | borrower payment slips (CR-1, PostgreSQL) › confirming | records a REAL payment through the ledger and marks the claim confirmed, together | ✓ |
+| API-30-013 | borrower payment slips (CR-1, PostgreSQL) › confirming | lets the admin correct the amount, date and note before confirming (the claim is only a claim) | ✓ |
+| API-30-014 | borrower payment slips (CR-1, PostgreSQL) › confirming | if the ledger refuses (more than is owed) NOTHING changes and the claim keeps waiting | ✓ |
+| API-30-015 | borrower payment slips (CR-1, PostgreSQL) › confirming | refuses a date before the payout, and a contract that closed in the meantime, leaving the claim waiting | ✓ |
+| API-30-016 | borrower payment slips (CR-1, PostgreSQL) › confirming | a claim is decided exactly once, even when two admins press the button together | ✓ |
+| API-30-017 | borrower payment slips (CR-1, PostgreSQL) › confirming | validates the corrections and the id, and is ADMIN only | ✓ |
+| API-30-018 | borrower payment slips (CR-1, PostgreSQL) › confirming | deleting the payment later keeps the claim as confirmed history (the link is just cleared) | ✓ |
+| API-30-019 | borrower payment slips (CR-1, PostgreSQL) › rejecting | needs a reason, records it, and shows it to the borrower | ✓ |
+| API-30-020 | borrower payment slips (CR-1, PostgreSQL) › rejecting | a decided claim cannot be decided again, and a rejected one frees a place under the limit | ✓ |
+| API-30-021 | borrower payment slips (CR-1, PostgreSQL) › rejecting | is ADMIN only and answers 404 for an unknown id | ✓ |
+| API-30-022 | borrower payment slips (CR-1, PostgreSQL) › telling the admin | sends one message when a slip arrives, naming the borrower, the contract and the amount | ✓ |
+| API-30-023 | borrower payment slips (CR-1, PostgreSQL) › telling the admin | sends nothing for a refused upload, and nothing about a claim that is no longer waiting | ✓ |
+| API-30-024 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | puts each contract on its due date and each payment on the day it was paid | ✓ |
+| API-30-025 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | shows what is still owed on an open contract and nothing owed on a settled one, and sums them with the ledger's own numbers | ✓ |
+| API-30-026 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | flags a contract past its due date, in the month of its due date | ✓ |
+| API-30-027 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | does not list contracts that were never paid out, or cancelled | ✓ |
+| API-30-028 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | defaults to the current month, validates the month, and is ADMIN only | ✓ |
+| API-30-029 | borrower payment slips (CR-1, PostgreSQL) › the admin calendar | a month with nothing in it is simply empty | ✓ |
 
-#### API-30 · `borrower-portal.test.ts` — borrower/portal — ผู้ยืมเห็นเฉพาะของตน
+#### API-31 · `borrower-portal.test.ts` — borrower/portal — ผู้ยืมเห็นเฉพาะของตน
 
 อ้างอิง: F8
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-30-001 | borrower portal (PostgreSQL) | shows the borrower their own profile, including their own account number (decrypted) | ✓ |
-| API-30-002 | borrower portal (PostgreSQL) | lists only the borrower's own requests with their status, and never the internal reject reason | ✓ |
-| API-30-003 | borrower portal (PostgreSQL) › contracts | lists only the borrower's own contracts | ✓ |
-| API-30-004 | borrower portal (PostgreSQL) › contracts | shows NO amount owed before the money is paid out, nor for a cancelled contract | ✓ |
-| API-30-005 | borrower portal (PostgreSQL) › contracts | shows what is owed today, the due date and the accrued late fee once it is paid out | ✓ |
-| API-30-006 | borrower portal (PostgreSQL) › contracts | returns the history of one contract: the payout and every payment | ✓ |
-| API-30-007 | borrower portal (PostgreSQL) › contracts | has no history to show for a contract that has not been paid out | ✓ |
-| API-30-008 | borrower portal (PostgreSQL) › contracts | never exposes slips, who recorded what, admin notes, rates or import details | ✓ |
-| API-30-009 | borrower portal (PostgreSQL) › contracts | answers 'not found' for another borrower's contract, exactly as for one that does not exist | ✓ |
-| API-30-010 | borrower portal (PostgreSQL) › access | each borrower sees only their own data | ✓ |
-| API-30-011 | borrower portal (PostgreSQL) › access | refuses anyone who is not logged in, an admin, or a borrower who has not accepted the PDPA terms | ✓ |
-| API-30-012 | borrower portal (PostgreSQL) › access | refuses a borrowerId sent by the client, so the session is the only source | ✓ |
-| API-30-013 | borrower portal (PostgreSQL) › access | stops working as soon as the account is switched off | ✓ |
+| API-31-001 | borrower portal (PostgreSQL) | shows the borrower their own profile, including their own account number (decrypted) | ✓ |
+| API-31-002 | borrower portal (PostgreSQL) | lists only the borrower's own requests with their status, and never the internal reject reason | ✓ |
+| API-31-003 | borrower portal (PostgreSQL) › contracts | lists only the borrower's own contracts | ✓ |
+| API-31-004 | borrower portal (PostgreSQL) › contracts | shows NO amount owed before the money is paid out, nor for a cancelled contract | ✓ |
+| API-31-005 | borrower portal (PostgreSQL) › contracts | shows what is owed today, the due date and the accrued late fee once it is paid out | ✓ |
+| API-31-006 | borrower portal (PostgreSQL) › contracts | returns the history of one contract: the payout and every payment | ✓ |
+| API-31-007 | borrower portal (PostgreSQL) › contracts | has no history to show for a contract that has not been paid out | ✓ |
+| API-31-008 | borrower portal (PostgreSQL) › contracts | never exposes slips, who recorded what, admin notes, rates or import details | ✓ |
+| API-31-009 | borrower portal (PostgreSQL) › contracts | answers 'not found' for another borrower's contract, exactly as for one that does not exist | ✓ |
+| API-31-010 | borrower portal (PostgreSQL) › access | each borrower sees only their own data | ✓ |
+| API-31-011 | borrower portal (PostgreSQL) › access | refuses anyone who is not logged in, an admin, or a borrower who has not accepted the PDPA terms | ✓ |
+| API-31-012 | borrower portal (PostgreSQL) › access | refuses a borrowerId sent by the client, so the session is the only source | ✓ |
+| API-31-013 | borrower portal (PostgreSQL) › access | stops working as soon as the account is switched off | ✓ |
 
-#### API-31 · `reports.test.ts` — reports/* — กำไรขาดทุน, ยอดค้าง, ผู้ชำระช้า
+#### API-32 · `reports.test.ts` — reports/* — กำไรขาดทุน, ยอดค้าง, ผู้ชำระช้า
 
 อ้างอิง: F9 · DES-015
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-31-001 | parsePeriod | understands a month, a year and a custom range, both ends included | ✓ |
-| API-31-002 | parsePeriod | means all time when nothing is given | ✓ |
-| API-31-003 | parsePeriod | rejects malformed, impossible, mixed or oversized periods | ✓ |
-| API-31-004 | reports (PostgreSQL) › profit and loss (T-501) | shows the cash and accrual bases side by side for a year | ✓ |
-| API-31-005 | reports (PostgreSQL) › profit and loss (T-501) | matches the payments in the database exactly (cash basis = allocated interest + late fee) | ✓ |
-| API-31-006 | reports (PostgreSQL) › profit and loss (T-501) | recognises interest in full on the due date even if only part was paid (accrual vs cash differ) | ✓ |
-| API-31-007 | reports (PostgreSQL) › profit and loss (T-501) | filters by month | ✓ |
-| API-31-008 | reports (PostgreSQL) › profit and loss (T-501) | counts a payment made on the last day of the period and on the first | ✓ |
-| API-31-009 | reports (PostgreSQL) › profit and loss (T-501) | never counts contracts that were not paid out or were cancelled | ✓ |
-| API-31-010 | reports (PostgreSQL) › profit and loss (T-501) | does not recognise interest before its due date has arrived | ✓ |
-| API-31-011 | reports (PostgreSQL) › profit and loss (T-501) | is zero for a period with no activity, and works for all time | ✓ |
-| API-31-012 | reports (PostgreSQL) › late payers (T-502) | ranks borrowers by how many contracts were late, counting unpaid overdue ones | ✓ |
-| API-31-013 | reports (PostgreSQL) › late payers (T-502) | counts per contract: two late contracts of one borrower count twice | ✓ |
-| API-31-014 | reports (PostgreSQL) › late payers (T-502) | filters by the period the contracts fall due in | ✓ |
-| API-31-015 | reports (PostgreSQL) › late payers (T-502) | breaks ties by name, and pages | ✓ |
-| API-31-016 | reports (PostgreSQL) › late payers (T-502) | rejects a bad period or page | ✓ |
-| API-31-017 | reports (PostgreSQL) › outstanding balance (T-502) | is what is owed on the contracts open on that day, replayed from their own history | ✓ |
-| API-31-018 | reports (PostgreSQL) › outstanding balance (T-502) | uses only the payments made up to that day | ✓ |
-| API-31-019 | reports (PostgreSQL) › outstanding balance (T-502) | counts an imported contract only from the day it was imported | ✓ |
-| API-31-020 | reports (PostgreSQL) › outstanding balance (T-502) | reports a contract whose history breaks a rule instead of hiding it | ✓ |
-| API-31-021 | reports (PostgreSQL) › outstanding balance (T-502) | rejects a future or malformed date | ✓ |
-| API-31-022 | reports (PostgreSQL) › borrower summary (T-502) | counts loans, late contracts, on-time payments, the on-time rate and what is owed | ✓ |
-| API-31-023 | reports (PostgreSQL) › borrower summary (T-502) | leaves out contracts that were never paid out or were cancelled | ✓ |
-| API-31-024 | reports (PostgreSQL) › borrower summary (T-502) | filters by period | ✓ |
-| API-31-025 | reports (PostgreSQL) › borrower summary (T-502) | has no verdict yet for a contract that is not due: neither on time nor late | ✓ |
-| API-31-026 | reports (PostgreSQL) › borrower summary (T-502) | pages and rejects bad input | ✓ |
-| API-31-027 | reports (PostgreSQL) › access | is ADMIN only on every report | ✓ |
-| API-31-028 | reports (PostgreSQL) › access | returns 400 with a reason for an invalid period | ✓ |
+| API-32-001 | parsePeriod | understands a month, a year and a custom range, both ends included | ✓ |
+| API-32-002 | parsePeriod | means all time when nothing is given | ✓ |
+| API-32-003 | parsePeriod | rejects malformed, impossible, mixed or oversized periods | ✓ |
+| API-32-004 | reports (PostgreSQL) › profit and loss (T-501) | shows the cash and accrual bases side by side for a year | ✓ |
+| API-32-005 | reports (PostgreSQL) › profit and loss (T-501) | matches the payments in the database exactly (cash basis = allocated interest + late fee) | ✓ |
+| API-32-006 | reports (PostgreSQL) › profit and loss (T-501) | recognises interest in full on the due date even if only part was paid (accrual vs cash differ) | ✓ |
+| API-32-007 | reports (PostgreSQL) › profit and loss (T-501) | filters by month | ✓ |
+| API-32-008 | reports (PostgreSQL) › profit and loss (T-501) | counts a payment made on the last day of the period and on the first | ✓ |
+| API-32-009 | reports (PostgreSQL) › profit and loss (T-501) | never counts contracts that were not paid out or were cancelled | ✓ |
+| API-32-010 | reports (PostgreSQL) › profit and loss (T-501) | does not recognise interest before its due date has arrived | ✓ |
+| API-32-011 | reports (PostgreSQL) › profit and loss (T-501) | is zero for a period with no activity, and works for all time | ✓ |
+| API-32-012 | reports (PostgreSQL) › late payers (T-502) | ranks borrowers by how many contracts were late, counting unpaid overdue ones | ✓ |
+| API-32-013 | reports (PostgreSQL) › late payers (T-502) | counts per contract: two late contracts of one borrower count twice | ✓ |
+| API-32-014 | reports (PostgreSQL) › late payers (T-502) | filters by the period the contracts fall due in | ✓ |
+| API-32-015 | reports (PostgreSQL) › late payers (T-502) | breaks ties by name, and pages | ✓ |
+| API-32-016 | reports (PostgreSQL) › late payers (T-502) | rejects a bad period or page | ✓ |
+| API-32-017 | reports (PostgreSQL) › outstanding balance (T-502) | is what is owed on the contracts open on that day, replayed from their own history | ✓ |
+| API-32-018 | reports (PostgreSQL) › outstanding balance (T-502) | uses only the payments made up to that day | ✓ |
+| API-32-019 | reports (PostgreSQL) › outstanding balance (T-502) | counts an imported contract only from the day it was imported | ✓ |
+| API-32-020 | reports (PostgreSQL) › outstanding balance (T-502) | reports a contract whose history breaks a rule instead of hiding it | ✓ |
+| API-32-021 | reports (PostgreSQL) › outstanding balance (T-502) | rejects a future or malformed date | ✓ |
+| API-32-022 | reports (PostgreSQL) › borrower summary (T-502) | counts loans, late contracts, on-time payments, the on-time rate and what is owed | ✓ |
+| API-32-023 | reports (PostgreSQL) › borrower summary (T-502) | leaves out contracts that were never paid out or were cancelled | ✓ |
+| API-32-024 | reports (PostgreSQL) › borrower summary (T-502) | filters by period | ✓ |
+| API-32-025 | reports (PostgreSQL) › borrower summary (T-502) | has no verdict yet for a contract that is not due: neither on time nor late | ✓ |
+| API-32-026 | reports (PostgreSQL) › borrower summary (T-502) | pages and rejects bad input | ✓ |
+| API-32-027 | reports (PostgreSQL) › access | is ADMIN only on every report | ✓ |
+| API-32-028 | reports (PostgreSQL) › access | returns 400 with a reason for an invalid period | ✓ |
 
-#### API-32 · `disbursement.test.ts` — loans/disbursement — บันทึกจ่ายเงิน, สลิปบังคับ, snapshot อัตรา
+#### API-33 · `disbursement.test.ts` — loans/disbursement — บันทึกจ่ายเงิน, สลิปบังคับ, snapshot อัตรา
 
 อ้างอิง: F4 · F5 · DES-010 · DES-011
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-32-001 | disbursement (PostgreSQL) | pays out in full, computes the interest and makes the contract ACTIVE | ✓ |
-| API-32-002 | disbursement (PostgreSQL) | rounds interest UP to a whole baht, never down or to nearest | ✓ |
-| API-32-003 | disbursement (PostgreSQL) | counts days from the payout date, so a backdated payout earns more interest | ✓ |
-| API-32-004 | disbursement (PostgreSQL) | snapshots the rates: changing them later never touches an existing contract | ✓ |
-| API-32-005 | disbursement (PostgreSQL) | refuses to pay out while either rate is not set | ✓ |
-| API-32-006 | disbursement (PostgreSQL) | requires a slip that we stored | ✓ |
-| API-32-007 | disbursement (PostgreSQL) | does not let one slip justify two payouts | ✓ |
-| API-32-008 | disbursement (PostgreSQL) | pays out exactly what was asked: an amount that differs is refused, a matching one is fine | ✓ |
-| API-32-009 | disbursement (PostgreSQL) | rejects a payout date in the future and a due date that is not after the payout date | ✓ |
-| API-32-010 | disbursement (PostgreSQL) | allows only one payout per contract, even when two arrive at the same moment | ✓ |
-| API-32-011 | disbursement (PostgreSQL) | only works on contracts waiting for disbursement | ✓ |
-| API-32-012 | disbursement (PostgreSQL) | cannot cancel a contract once it has been paid out | ✓ |
-| API-32-013 | disbursement (PostgreSQL) | refuses a payout on or after the due date (the interest would have no days) and changes nothing | ✓ |
-| API-32-014 | disbursement (PostgreSQL) | is ADMIN only | ✓ |
-| API-32-015 | disbursement (PostgreSQL) | validates the body | ✓ |
-| API-32-016 | disbursement (PostgreSQL) | writes an audit row with the interest, days and rates used | ✓ |
+| API-33-001 | disbursement (PostgreSQL) | pays out in full, computes the interest and makes the contract ACTIVE | ✓ |
+| API-33-002 | disbursement (PostgreSQL) | rounds interest UP to a whole baht, never down or to nearest | ✓ |
+| API-33-003 | disbursement (PostgreSQL) | counts days from the payout date, so a backdated payout earns more interest | ✓ |
+| API-33-004 | disbursement (PostgreSQL) | snapshots the rates: changing them later never touches an existing contract | ✓ |
+| API-33-005 | disbursement (PostgreSQL) | refuses to pay out while either rate is not set | ✓ |
+| API-33-006 | disbursement (PostgreSQL) | requires a slip that we stored | ✓ |
+| API-33-007 | disbursement (PostgreSQL) | does not let one slip justify two payouts | ✓ |
+| API-33-008 | disbursement (PostgreSQL) | pays out exactly what was asked: an amount that differs is refused, a matching one is fine | ✓ |
+| API-33-009 | disbursement (PostgreSQL) | rejects a payout date in the future and a due date that is not after the payout date | ✓ |
+| API-33-010 | disbursement (PostgreSQL) | allows only one payout per contract, even when two arrive at the same moment | ✓ |
+| API-33-011 | disbursement (PostgreSQL) | only works on contracts waiting for disbursement | ✓ |
+| API-33-012 | disbursement (PostgreSQL) | cannot cancel a contract once it has been paid out | ✓ |
+| API-33-013 | disbursement (PostgreSQL) | refuses a payout on or after the due date (the interest would have no days) and changes nothing | ✓ |
+| API-33-014 | disbursement (PostgreSQL) | is ADMIN only | ✓ |
+| API-33-015 | disbursement (PostgreSQL) | validates the body | ✓ |
+| API-33-016 | disbursement (PostgreSQL) | writes an audit row with the interest, days and rates used | ✓ |
 
-#### API-33 · `interest-estimate.test.ts` — loans/interest-estimate + route — ผู้ยืมประมาณดอกเบี้ย (ไม่บันทึกข้อมูล)
+#### API-34 · `interest-estimate.test.ts` — loans/interest-estimate + route — ผู้ยืมประมาณดอกเบี้ย (ไม่บันทึกข้อมูล)
 
 อ้างอิง: F3 · F4 · DES-010 · DES-019
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-33-001 | estimateInterest: the figures | without a due date it is for 30 days, and says the 30 days is an assumption | ✓ |
-| API-33-002 | estimateInterest: the figures | 1000 at 3 % 7 for 7 days -> undefined | ✓ |
-| API-33-003 | estimateInterest: the figures | 1000.01 at 3 % 7 for 8 days -> undefined | ✓ |
-| API-33-004 | estimateInterest: the figures | 5000 at 2.5 % 45 for 188 days -> undefined | ✓ |
-| API-33-005 | estimateInterest: the figures | 1 at 3 % 1 for 1 days -> undefined | ✓ |
-| API-33-006 | estimateInterest: the figures | 100000 at 0 % 30 for 0 days -> undefined | ✓ |
-| API-33-007 | estimateInterest: the figures | an awkward rate and amount agree with an exact integer calculation | ✓ |
-| API-33-008 | estimateInterest: the figures | is exactly what the real contract will compute for the same amount, rate and days (no drift) | ✓ |
-| API-33-009 | estimateInterest: the figures | the interest is always a whole number of baht, and never below the exact figure | ✓ |
-| API-33-010 | estimateInterest: the figures | counts the days from today in Bangkok (just after midnight there it is already tomorrow) | ✓ |
-| API-33-011 | estimateInterest: what it refuses | a due date today, in the past, is refused; tomorrow is one day | ✓ |
-| API-33-012 | estimateInterest: what it refuses | with no rate set yet, says so in words a borrower can act on (not the admin's 'go to settings') | ✓ |
-| API-33-013 | estimateInterest: what it refuses | an amount whose result would not fit the system's limit is refused, not rounded or cut | ✓ |
-| API-33-014 | GET /loan-requests/interest-estimate (PostgreSQL) | a borrower enters only an amount and gets the 30-day interest at the current rate | ✓ |
-| API-33-015 | GET /loan-requests/interest-estimate (PostgreSQL) | with a due date it uses the days until then | ✓ |
-| API-33-016 | GET /loan-requests/interest-estimate (PostgreSQL) | an empty due-date box counts as no due date (that is how the form sends it) | ✓ |
-| API-33-017 | GET /loan-requests/interest-estimate (PostgreSQL) | follows the rate the lender sets: change it and the next answer changes (nothing is cached or hard-coded) | ✓ |
-| API-33-018 | GET /loan-requests/interest-estimate (PostgreSQL) | matches the interest the lender's real payout then records for the same amount and days | ✓ |
-| API-33-019 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses no amount (400) and says what is wrong | ✓ |
-| API-33-020 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses an empty amount (400) and says what is wrong | ✓ |
-| API-33-021 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses text (400) and says what is wrong | ✓ |
-| API-33-022 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses zero (400) and says what is wrong | ✓ |
-| API-33-023 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses a negative amount (400) and says what is wrong | ✓ |
-| API-33-024 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses three decimals (400) and says what is wrong | ✓ |
-| API-33-025 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses too many digits (400) and says what is wrong | ✓ |
-| API-33-026 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses a bad date (400) and says what is wrong | ✓ |
-| API-33-027 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses a date in words (400) and says what is wrong | ✓ |
-| API-33-028 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses a due date that is today or earlier | ✓ |
-| API-33-029 | GET /loan-requests/interest-estimate (PostgreSQL) | answers 409 in borrower words while the lender has not set the rate | ✓ |
-| API-33-030 | GET /loan-requests/interest-estimate (PostgreSQL) | is for borrowers only: a visitor gets 401, an admin 403, a borrower who has not accepted the PDPA terms 403 | ✓ |
-| API-33-031 | GET /loan-requests/interest-estimate (PostgreSQL) | saves nothing and logs nothing: no request, no contract, no audit row | ✓ |
-| API-33-032 | GET /loan-requests/interest-estimate (PostgreSQL) | does not let a borrower pass another borrower's id to learn anything: it ignores extra parameters | ✓ |
+| API-34-001 | estimateInterest: the figures | without a due date it is for 30 days, and says the 30 days is an assumption | ✓ |
+| API-34-002 | estimateInterest: the figures | 1000 at 3 % 7 for 7 days -> undefined | ✓ |
+| API-34-003 | estimateInterest: the figures | 1000.01 at 3 % 7 for 8 days -> undefined | ✓ |
+| API-34-004 | estimateInterest: the figures | 5000 at 2.5 % 45 for 188 days -> undefined | ✓ |
+| API-34-005 | estimateInterest: the figures | 1 at 3 % 1 for 1 days -> undefined | ✓ |
+| API-34-006 | estimateInterest: the figures | 100000 at 0 % 30 for 0 days -> undefined | ✓ |
+| API-34-007 | estimateInterest: the figures | an awkward rate and amount agree with an exact integer calculation | ✓ |
+| API-34-008 | estimateInterest: the figures | is exactly what the real contract will compute for the same amount, rate and days (no drift) | ✓ |
+| API-34-009 | estimateInterest: the figures | the interest is always a whole number of baht, and never below the exact figure | ✓ |
+| API-34-010 | estimateInterest: the figures | counts the days from today in Bangkok (just after midnight there it is already tomorrow) | ✓ |
+| API-34-011 | estimateInterest: what it refuses | a due date today, in the past, is refused; tomorrow is one day | ✓ |
+| API-34-012 | estimateInterest: what it refuses | with no rate set yet, says so in words a borrower can act on (not the admin's 'go to settings') | ✓ |
+| API-34-013 | estimateInterest: what it refuses | an amount whose result would not fit the system's limit is refused, not rounded or cut | ✓ |
+| API-34-014 | GET /loan-requests/interest-estimate (PostgreSQL) | a borrower enters only an amount and gets the 30-day interest at the current rate | ✓ |
+| API-34-015 | GET /loan-requests/interest-estimate (PostgreSQL) | with a due date it uses the days until then | ✓ |
+| API-34-016 | GET /loan-requests/interest-estimate (PostgreSQL) | an empty due-date box counts as no due date (that is how the form sends it) | ✓ |
+| API-34-017 | GET /loan-requests/interest-estimate (PostgreSQL) | follows the rate the lender sets: change it and the next answer changes (nothing is cached or hard-coded) | ✓ |
+| API-34-018 | GET /loan-requests/interest-estimate (PostgreSQL) | matches the interest the lender's real payout then records for the same amount and days | ✓ |
+| API-34-019 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses no amount (400) and says what is wrong | ✓ |
+| API-34-020 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses an empty amount (400) and says what is wrong | ✓ |
+| API-34-021 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses text (400) and says what is wrong | ✓ |
+| API-34-022 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses zero (400) and says what is wrong | ✓ |
+| API-34-023 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses a negative amount (400) and says what is wrong | ✓ |
+| API-34-024 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses three decimals (400) and says what is wrong | ✓ |
+| API-34-025 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses too many digits (400) and says what is wrong | ✓ |
+| API-34-026 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses a bad date (400) and says what is wrong | ✓ |
+| API-34-027 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses a date in words (400) and says what is wrong | ✓ |
+| API-34-028 | GET /loan-requests/interest-estimate (PostgreSQL) | refuses a due date that is today or earlier | ✓ |
+| API-34-029 | GET /loan-requests/interest-estimate (PostgreSQL) | answers 409 in borrower words while the lender has not set the rate | ✓ |
+| API-34-030 | GET /loan-requests/interest-estimate (PostgreSQL) | is for borrowers only: a visitor gets 401, an admin 403, a borrower who has not accepted the PDPA terms 403 | ✓ |
+| API-34-031 | GET /loan-requests/interest-estimate (PostgreSQL) | saves nothing and logs nothing: no request, no contract, no audit row | ✓ |
+| API-34-032 | GET /loan-requests/interest-estimate (PostgreSQL) | does not let a borrower pass another borrower's id to learn anything: it ignores extra parameters | ✓ |
 
-#### API-34 · `ledger.test.ts` — loans/ledger, payments — รับชำระ แก้ ลบ replay สัญญา
+#### API-35 · `ledger.test.ts` — loans/ledger, payments — รับชำระ แก้ ลบ replay สัญญา
 
 อ้างอิง: F5 · F6 · DES-011 · DES-012 · DES-016
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-34-001 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | takes a part payment before the due date: interest first, the interest never shrinks | ✓ |
-| API-34-002 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | pays off a contract on its due date with no late fee at all | ✓ |
-| API-34-003 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | catches up the days the nightly job has not run: 1 % a day compounding, rounded up | ✓ |
-| API-34-004 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | a payment dated earlier lowers the base of every later day (back-dated, 'owed now') | ✓ |
-| API-34-005 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | removes the fee rows of days that no longer apply when a back-dated payment closes the contract earlier | ✓ |
-| API-34-006 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | settling an overdue contract counts today's fee, then closes it | ✓ |
-| API-34-007 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | refuses to pay more than is owed and saves nothing | ✓ |
-| API-34-008 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | rejects dates in the future and before the payout | ✓ |
-| API-34-009 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | validates the body | ✓ |
-| API-34-010 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | only takes payments for contracts that are paid out and not yet closed | ✓ |
-| API-34-011 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | is ADMIN only | ✓ |
-| API-34-012 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | records who did it and the contract before/after in the audit log | ✓ |
-| API-34-013 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | lets only one of several simultaneous full payments through | ✓ |
-| API-34-014 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | refuses a back-dated payment that would make a later payment exceed what is owed | ✓ |
-| API-34-015 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | edits the amount and the whole contract is replayed | ✓ |
-| API-34-016 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | moves a payment to another day and fees follow | ✓ |
-| API-34-017 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | changing only the note leaves every number alone | ✓ |
-| API-34-018 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | refuses an edit that overpays, and an edit that breaks another payment, saving nothing | ✓ |
-| API-34-019 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | refuses a date in the future or before the payout | ✓ |
-| API-34-020 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | deletes a payment, restoring the balances a fresh replay gives | ✓ |
-| API-34-021 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | reopens a closed contract when the closing payment is deleted, and fees run again | ✓ |
-| API-34-022 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | deleting an earlier payment can reopen a contract that a later payment had closed | ✓ |
-| API-34-023 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | 404s for unknown payments and is ADMIN only | ✓ |
-| API-34-024 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | rejects an empty or invalid patch | ✓ |
-| API-34-025 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | moving the payout date recomputes the interest with the contract's own rate, not today's | ✓ |
-| API-34-026 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | refuses a payout date after an existing payment, a date too close to the due date or in the future | ✓ |
-| API-34-027 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | refuses to move the payout date onto or after the due date, and keeps the interest as it was | ✓ |
-| API-34-028 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | replaces the slip with another stored, unused slip, and refuses others | ✓ |
-| API-34-029 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | deletes a payout only when there are no payments, and the contract goes back to waiting | ✓ |
-| API-34-030 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | 404s for unknown payouts and is ADMIN only | ✓ |
-| API-34-031 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | shows what is owed TODAY even when the nightly job has not run | ✓ |
-| API-34-032 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | lists the payout and every payment of a contract | ✓ |
-| API-34-033 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | computes overdue and late flags and never stores them | ✓ |
-| API-34-034 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | lists with filters, search, sorting and paging | ✓ |
-| API-34-035 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | shows no amount owed for a contract still waiting for its payout | ✓ |
-| API-34-036 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | 404s for unknown contracts and is ADMIN only | ✓ |
+| API-35-001 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | takes a part payment before the due date: interest first, the interest never shrinks | ✓ |
+| API-35-002 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | pays off a contract on its due date with no late fee at all | ✓ |
+| API-35-003 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | catches up the days the nightly job has not run: 1 % a day compounding, rounded up | ✓ |
+| API-35-004 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | a payment dated earlier lowers the base of every later day (back-dated, 'owed now') | ✓ |
+| API-35-005 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | removes the fee rows of days that no longer apply when a back-dated payment closes the contract earlier | ✓ |
+| API-35-006 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | settling an overdue contract counts today's fee, then closes it | ✓ |
+| API-35-007 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | refuses to pay more than is owed and saves nothing | ✓ |
+| API-35-008 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | rejects dates in the future and before the payout | ✓ |
+| API-35-009 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | validates the body | ✓ |
+| API-35-010 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | only takes payments for contracts that are paid out and not yet closed | ✓ |
+| API-35-011 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | is ADMIN only | ✓ |
+| API-35-012 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | records who did it and the contract before/after in the audit log | ✓ |
+| API-35-013 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | lets only one of several simultaneous full payments through | ✓ |
+| API-35-014 | payments, late fees, edits, deletes and queries (PostgreSQL) › recording a payment (T-303) | refuses a back-dated payment that would make a later payment exceed what is owed | ✓ |
+| API-35-015 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | edits the amount and the whole contract is replayed | ✓ |
+| API-35-016 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | moves a payment to another day and fees follow | ✓ |
+| API-35-017 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | changing only the note leaves every number alone | ✓ |
+| API-35-018 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | refuses an edit that overpays, and an edit that breaks another payment, saving nothing | ✓ |
+| API-35-019 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | refuses a date in the future or before the payout | ✓ |
+| API-35-020 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | deletes a payment, restoring the balances a fresh replay gives | ✓ |
+| API-35-021 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | reopens a closed contract when the closing payment is deleted, and fees run again | ✓ |
+| API-35-022 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | deleting an earlier payment can reopen a contract that a later payment had closed | ✓ |
+| API-35-023 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | 404s for unknown payments and is ADMIN only | ✓ |
+| API-35-024 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payment (T-305) | rejects an empty or invalid patch | ✓ |
+| API-35-025 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | moving the payout date recomputes the interest with the contract's own rate, not today's | ✓ |
+| API-35-026 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | refuses a payout date after an existing payment, a date too close to the due date or in the future | ✓ |
+| API-35-027 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | refuses to move the payout date onto or after the due date, and keeps the interest as it was | ✓ |
+| API-35-028 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | replaces the slip with another stored, unused slip, and refuses others | ✓ |
+| API-35-029 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | deletes a payout only when there are no payments, and the contract goes back to waiting | ✓ |
+| API-35-030 | payments, late fees, edits, deletes and queries (PostgreSQL) › editing and deleting a payout (T-305) | 404s for unknown payouts and is ADMIN only | ✓ |
+| API-35-031 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | shows what is owed TODAY even when the nightly job has not run | ✓ |
+| API-35-032 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | lists the payout and every payment of a contract | ✓ |
+| API-35-033 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | computes overdue and late flags and never stores them | ✓ |
+| API-35-034 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | lists with filters, search, sorting and paging | ✓ |
+| API-35-035 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | shows no amount owed for a contract still waiting for its payout | ✓ |
+| API-35-036 | payments, late fees, edits, deletes and queries (PostgreSQL) › admin contract queries (T-306) | 404s for unknown contracts and is ADMIN only | ✓ |
 
-#### API-35 · `loans.test.ts` — loans/* — คำขอยืม, อนุมัติ, สัญญา, สิทธิ์
+#### API-36 · `loans.test.ts` — loans/* — คำขอยืม, อนุมัติ, สัญญา, สิทธิ์
 
 อ้างอิง: F3 · F4 · DES-004–006
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-35-001 | loan requests and contracts (PostgreSQL) › borrower files a request | creates a PENDING request for the session's own borrower | ✓ |
-| API-35-002 | loan requests and contracts (PostgreSQL) › borrower files a request | never takes the borrower from the client | ✓ |
-| API-35-003 | loan requests and contracts (PostgreSQL) › borrower files a request | requires a due date after today (Asia/Bangkok) | ✓ |
-| API-35-004 | loan requests and contracts (PostgreSQL) › borrower files a request | rejects bad amounts and dates | ✓ |
-| API-35-005 | loan requests and contracts (PostgreSQL) › borrower files a request | accepts the largest amount the column holds | ✓ |
-| API-35-006 | loan requests and contracts (PostgreSQL) › borrower files a request | is closed to anyone who is not a borrower who accepted the PDPA terms | ✓ |
-| API-35-007 | loan requests and contracts (PostgreSQL) › admin files a request on behalf of a borrower | works, including for a borrower who has no login | ✓ |
-| API-35-008 | loan requests and contracts (PostgreSQL) › admin files a request on behalf of a borrower | rejects an unknown borrower and a past due date | ✓ |
-| API-35-009 | loan requests and contracts (PostgreSQL) › admin files a request on behalf of a borrower | is closed to borrowers and anonymous callers | ✓ |
-| API-35-010 | loan requests and contracts (PostgreSQL) › list and get | filters by borrower and status and paginates | ✓ |
-| API-35-011 | loan requests and contracts (PostgreSQL) › list and get | returns one request or 404 | ✓ |
-| API-35-012 | loan requests and contracts (PostgreSQL) › approve | creates a contract waiting for disbursement, with no amount owed shown yet | ✓ |
-| API-35-013 | loan requests and contracts (PostgreSQL) › approve | lets the admin approve a request the admin filed (no separation of duties) | ✓ |
-| API-35-014 | loan requests and contracts (PostgreSQL) › approve | approves a request once only | ✓ |
-| API-35-015 | loan requests and contracts (PostgreSQL) › approve | creates exactly one contract when the same request is approved twice at once | ✓ |
-| API-35-016 | loan requests and contracts (PostgreSQL) › approve | gives distinct contract numbers when different requests are approved at once | ✓ |
-| API-35-017 | loan requests and contracts (PostgreSQL) › approve | is closed to borrowers | ✓ |
-| API-35-018 | loan requests and contracts (PostgreSQL) › reject and cancel a request | rejects with a reason and creates no contract | ✓ |
-| API-35-019 | loan requests and contracts (PostgreSQL) › reject and cancel a request | cannot reject or cancel what is already decided | ✓ |
-| API-35-020 | loan requests and contracts (PostgreSQL) › reject and cancel a request | cancels a pending request | ✓ |
-| API-35-021 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | cancels a pending request and records who did it | ✓ |
-| API-35-022 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | also covers a request the admin filed for that borrower | ✓ |
-| API-35-023 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | cannot touch another borrower's request, and does not reveal that it exists | ✓ |
-| API-35-024 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | works only while the request is pending | ✓ |
-| API-35-025 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | leaves the admin unable to approve it afterwards | ✓ |
-| API-35-026 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | ends consistent when the borrower cancels while the admin approves | ✓ |
-| API-35-027 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | is closed to anyone who is not a borrower who accepted the PDPA terms | ✓ |
-| API-35-028 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | refuses a borrowerId in the request | ✓ |
-| API-35-029 | loan requests and contracts (PostgreSQL) › cancel a contract (DES-005) | cancels a contract that is still waiting for disbursement | ✓ |
-| API-35-030 | loan requests and contracts (PostgreSQL) › cancel a contract (DES-005) | refuses once a Disbursement exists, leaving the contract untouched | ✓ |
-| API-35-031 | loan requests and contracts (PostgreSQL) › cancel a contract (DES-005) | is for ADMIN only and 404s on unknown ids | ✓ |
+| API-36-001 | loan requests and contracts (PostgreSQL) › borrower files a request | creates a PENDING request for the session's own borrower | ✓ |
+| API-36-002 | loan requests and contracts (PostgreSQL) › borrower files a request | never takes the borrower from the client | ✓ |
+| API-36-003 | loan requests and contracts (PostgreSQL) › borrower files a request | requires a due date after today (Asia/Bangkok) | ✓ |
+| API-36-004 | loan requests and contracts (PostgreSQL) › borrower files a request | rejects bad amounts and dates | ✓ |
+| API-36-005 | loan requests and contracts (PostgreSQL) › borrower files a request | accepts the largest amount the column holds | ✓ |
+| API-36-006 | loan requests and contracts (PostgreSQL) › borrower files a request | is closed to anyone who is not a borrower who accepted the PDPA terms | ✓ |
+| API-36-007 | loan requests and contracts (PostgreSQL) › admin files a request on behalf of a borrower | works, including for a borrower who has no login | ✓ |
+| API-36-008 | loan requests and contracts (PostgreSQL) › admin files a request on behalf of a borrower | rejects an unknown borrower and a past due date | ✓ |
+| API-36-009 | loan requests and contracts (PostgreSQL) › admin files a request on behalf of a borrower | is closed to borrowers and anonymous callers | ✓ |
+| API-36-010 | loan requests and contracts (PostgreSQL) › list and get | filters by borrower and status and paginates | ✓ |
+| API-36-011 | loan requests and contracts (PostgreSQL) › list and get | returns one request or 404 | ✓ |
+| API-36-012 | loan requests and contracts (PostgreSQL) › approve | creates a contract waiting for disbursement, with no amount owed shown yet | ✓ |
+| API-36-013 | loan requests and contracts (PostgreSQL) › approve | lets the admin approve a request the admin filed (no separation of duties) | ✓ |
+| API-36-014 | loan requests and contracts (PostgreSQL) › approve | approves a request once only | ✓ |
+| API-36-015 | loan requests and contracts (PostgreSQL) › approve | creates exactly one contract when the same request is approved twice at once | ✓ |
+| API-36-016 | loan requests and contracts (PostgreSQL) › approve | gives distinct contract numbers when different requests are approved at once | ✓ |
+| API-36-017 | loan requests and contracts (PostgreSQL) › approve | is closed to borrowers | ✓ |
+| API-36-018 | loan requests and contracts (PostgreSQL) › reject and cancel a request | rejects with a reason and creates no contract | ✓ |
+| API-36-019 | loan requests and contracts (PostgreSQL) › reject and cancel a request | cannot reject or cancel what is already decided | ✓ |
+| API-36-020 | loan requests and contracts (PostgreSQL) › reject and cancel a request | cancels a pending request | ✓ |
+| API-36-021 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | cancels a pending request and records who did it | ✓ |
+| API-36-022 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | also covers a request the admin filed for that borrower | ✓ |
+| API-36-023 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | cannot touch another borrower's request, and does not reveal that it exists | ✓ |
+| API-36-024 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | works only while the request is pending | ✓ |
+| API-36-025 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | leaves the admin unable to approve it afterwards | ✓ |
+| API-36-026 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | ends consistent when the borrower cancels while the admin approves | ✓ |
+| API-36-027 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | is closed to anyone who is not a borrower who accepted the PDPA terms | ✓ |
+| API-36-028 | loan requests and contracts (PostgreSQL) › borrower cancels their own request (P2) | refuses a borrowerId in the request | ✓ |
+| API-36-029 | loan requests and contracts (PostgreSQL) › cancel a contract (DES-005) | cancels a contract that is still waiting for disbursement | ✓ |
+| API-36-030 | loan requests and contracts (PostgreSQL) › cancel a contract (DES-005) | refuses once a Disbursement exists, leaving the contract untouched | ✓ |
+| API-36-031 | loan requests and contracts (PostgreSQL) › cancel a contract (DES-005) | is for ADMIN only and 404s on unknown ids | ✓ |
 
-#### API-36 · `slips.test.ts` — lib/slip-storage + route — เก็บ/เปิดสลิป เฉพาะ ADMIN
+#### API-37 · `slips.test.ts` — lib/slip-storage + route — เก็บ/เปิดสลิป เฉพาะ ADMIN
 
 อ้างอิง: F5 · DES-011
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-36-001 | detectSlipType | recognises JPEG and PNG by their bytes | ✓ |
-| API-36-002 | detectSlipType | rejects everything else, whatever it is called | ✓ |
-| API-36-003 | slip keys | accepts only keys we generate | ✓ |
-| API-36-004 | slip keys | are random and never repeat | ✓ |
-| API-36-005 | LocalDiskSlipStorage | stores and returns bytes, creating the folder on demand | ✓ |
-| API-36-006 | LocalDiskSlipStorage | never overwrites an existing slip | ✓ |
-| API-36-007 | LocalDiskSlipStorage | answers null/false for unknown keys and refuses to touch the disk for invalid ones | ✓ |
-| API-36-008 | slip upload and download (PostgreSQL) | stores an uploaded JPEG under a server-chosen key and serves the same bytes back | ✓ |
-| API-36-009 | slip upload and download (PostgreSQL) | accepts PNG too, and the same bytes never get the same key twice | ✓ |
-| API-36-010 | slip upload and download (PostgreSQL) | decides the type from the bytes, not from what the client claims | ✓ |
-| API-36-011 | slip upload and download (PostgreSQL) | rejects empty bodies and JSON bodies as 'no file' | ✓ |
-| API-36-012 | slip upload and download (PostgreSQL) | refuses files over the size limit (413) | ✓ |
-| API-36-013 | slip upload and download (PostgreSQL) | is ADMIN only for both upload and download | ✓ |
-| API-36-014 | slip upload and download (PostgreSQL) | answers 404 for unknown keys and path-traversal attempts | ✓ |
+| API-37-001 | detectSlipType | recognises JPEG and PNG by their bytes | ✓ |
+| API-37-002 | detectSlipType | rejects everything else, whatever it is called | ✓ |
+| API-37-003 | slip keys | accepts only keys we generate | ✓ |
+| API-37-004 | slip keys | are random and never repeat | ✓ |
+| API-37-005 | LocalDiskSlipStorage | stores and returns bytes, creating the folder on demand | ✓ |
+| API-37-006 | LocalDiskSlipStorage | never overwrites an existing slip | ✓ |
+| API-37-007 | LocalDiskSlipStorage | answers null/false for unknown keys and refuses to touch the disk for invalid ones | ✓ |
+| API-37-008 | slip upload and download (PostgreSQL) | stores an uploaded JPEG under a server-chosen key and serves the same bytes back | ✓ |
+| API-37-009 | slip upload and download (PostgreSQL) | accepts PNG too, and the same bytes never get the same key twice | ✓ |
+| API-37-010 | slip upload and download (PostgreSQL) | decides the type from the bytes, not from what the client claims | ✓ |
+| API-37-011 | slip upload and download (PostgreSQL) | rejects empty bodies and JSON bodies as 'no file' | ✓ |
+| API-37-012 | slip upload and download (PostgreSQL) | refuses files over the size limit (413) | ✓ |
+| API-37-013 | slip upload and download (PostgreSQL) | is ADMIN only for both upload and download | ✓ |
+| API-37-014 | slip upload and download (PostgreSQL) | answers 404 for unknown keys and path-traversal attempts | ✓ |
 
-#### API-37 · `blob-storage.test.ts` — lib/blob-storage — สลิป/ไฟล์นำเข้าใน Vercel Blob private
+#### API-38 · `blob-storage.test.ts` — lib/blob-storage — สลิป/ไฟล์นำเข้าใน Vercel Blob private
 
 อ้างอิง: DEPLOY-VERCEL
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-37-001 | BlobSlipStorage | keeps a slip under slips/<key> with the right content type, and gives the same bytes back | ✓ |
-| API-37-002 | BlobSlipStorage | answers null / false for a slip that is not there, and removing twice is fine | ✓ |
-| API-37-003 | BlobSlipStorage | never overwrites an existing slip | ✓ |
-| API-37-004 | BlobSlipStorage | never asks the store about the key "" | ✓ |
-| API-37-005 | BlobSlipStorage | never asks the store about the key "../x.jpg" | ✓ |
-| API-37-006 | BlobSlipStorage | never asks the store about the key "a/b.jpg" | ✓ |
-| API-37-007 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.gif" | ✓ |
-| API-37-008 | BlobSlipStorage | never asks the store about the key "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.jpg" | ✓ |
-| API-37-009 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg" | ✓ |
-| API-37-010 | BlobSlipStorage | never asks the store about the key "slips/../../x" | ✓ |
-| API-37-011 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg\n" | ✓ |
-| API-37-012 | BlobImportStorage | stores under imports/<key>, with the right content type, and returns bytes and the upload time | ✓ |
-| API-37-013 | BlobImportStorage | deletes a file, never overwrites, and answers null for a missing or invalid key | ✓ |
-| API-37-014 | BlobImportStorage | purges only our own files that are older than the limit, and says how many | ✓ |
-| API-37-015 | vercelBlobClient (the real calls, with the SDK replaced) | put: private store, no suffix, no overwrite, with the content type | ✓ |
-| API-37-016 | vercelBlobClient (the real calls, with the SDK replaced) | get: reads from a private store bypassing the cache, and returns the bytes and upload time | ✓ |
-| API-37-017 | vercelBlobClient (the real calls, with the SDK replaced) | get: null when the store has no such blob, or does not answer 200 | ✓ |
-| API-37-018 | vercelBlobClient (the real calls, with the SDK replaced) | exists: true when the blob has metadata, false for 'not found', and any other failure is not hidden | ✓ |
-| API-37-019 | vercelBlobClient (the real calls, with the SDK replaced) | remove deletes by pathname | ✓ |
-| API-37-020 | vercelBlobClient (the real calls, with the SDK replaced) | list: follows the pages until there are no more | ✓ |
+| API-38-001 | BlobSlipStorage | keeps a slip under slips/<key> with the right content type, and gives the same bytes back | ✓ |
+| API-38-002 | BlobSlipStorage | answers null / false for a slip that is not there, and removing twice is fine | ✓ |
+| API-38-003 | BlobSlipStorage | never overwrites an existing slip | ✓ |
+| API-38-004 | BlobSlipStorage | never asks the store about the key "" | ✓ |
+| API-38-005 | BlobSlipStorage | never asks the store about the key "../x.jpg" | ✓ |
+| API-38-006 | BlobSlipStorage | never asks the store about the key "a/b.jpg" | ✓ |
+| API-38-007 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.gif" | ✓ |
+| API-38-008 | BlobSlipStorage | never asks the store about the key "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.jpg" | ✓ |
+| API-38-009 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg" | ✓ |
+| API-38-010 | BlobSlipStorage | never asks the store about the key "slips/../../x" | ✓ |
+| API-38-011 | BlobSlipStorage | never asks the store about the key "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg\n" | ✓ |
+| API-38-012 | BlobImportStorage | stores under imports/<key>, with the right content type, and returns bytes and the upload time | ✓ |
+| API-38-013 | BlobImportStorage | deletes a file, never overwrites, and answers null for a missing or invalid key | ✓ |
+| API-38-014 | BlobImportStorage | purges only our own files that are older than the limit, and says how many | ✓ |
+| API-38-015 | vercelBlobClient (the real calls, with the SDK replaced) | put: private store, no suffix, no overwrite, with the content type | ✓ |
+| API-38-016 | vercelBlobClient (the real calls, with the SDK replaced) | get: reads from a private store bypassing the cache, and returns the bytes and upload time | ✓ |
+| API-38-017 | vercelBlobClient (the real calls, with the SDK replaced) | get: null when the store has no such blob, or does not answer 200 | ✓ |
+| API-38-018 | vercelBlobClient (the real calls, with the SDK replaced) | exists: true when the blob has metadata, false for 'not found', and any other failure is not hidden | ✓ |
+| API-38-019 | vercelBlobClient (the real calls, with the SDK replaced) | remove deletes by pathname | ✓ |
+| API-38-020 | vercelBlobClient (the real calls, with the SDK replaced) | list: follows the pages until there are no more | ✓ |
 
-#### API-38 · `cron-routes.test.ts` — jobs/cron-routes — งานกลางคืนเรียกผ่าน HTTP ด้วย CRON_SECRET
+#### API-39 · `cron-routes.test.ts` — jobs/cron-routes — งานกลางคืนเรียกผ่าน HTTP ด้วย CRON_SECRET
 
 อ้างอิง: DEPLOY-VERCEL · F6 · F7
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-38-001 | the secret | /late-fee: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
-| API-38-002 | the secret | /notify-due-today: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
-| API-38-003 | the secret | /notify-overdue: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
-| API-38-004 | the secret | the secret in the address does not count, and the answer never contains the secret | ✓ |
-| API-38-005 | the secret | only GET is accepted (that is what Vercel Cron sends); anything else is not a route | ✓ |
-| API-38-006 | /late-fee | runs the nightly late-fee job and reports only counts | ✓ |
-| API-38-007 | /late-fee | counts failed contracts, logs which ones, but never puts a contract id or reason in the answer | ✓ |
-| API-38-008 | /late-fee | does not run while another process holds the job's lock, and says so | ✓ |
-| API-38-009 | /late-fee | a crash inside the job is a 500 with no detail (and Vercel will show the run as failed) | ✓ |
-| API-38-010 | the notification rounds | /notify-due-today: with no contract that qualifies it sends nothing and says so | ✓ |
-| API-38-011 | the notification rounds | /notify-overdue: with no contract that qualifies it sends nothing and says so | ✓ |
-| API-38-012 | the notification rounds | /notify-due-today: skips (without error) when no notifier is configured | ✓ |
-| API-38-013 | the notification rounds | /notify-overdue: skips (without error) when no notifier is configured | ✓ |
-| API-38-014 | the notification rounds | /notify-due-today: does not run while another process holds the lock | ✓ |
-| API-38-015 | the notification rounds | /notify-overdue: does not run while another process holds the lock | ✓ |
-| API-38-016 | the notification rounds | each job takes its own lock (a slow late-fee run does not block the notifications) | ✓ |
+| API-39-001 | the secret | /late-fee: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
+| API-39-002 | the secret | /notify-due-today: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
+| API-39-003 | the secret | /notify-overdue: no header, a wrong secret or a wrong scheme is refused (401) and nothing runs | ✓ |
+| API-39-004 | the secret | the secret in the address does not count, and the answer never contains the secret | ✓ |
+| API-39-005 | the secret | only GET is accepted (that is what Vercel Cron sends); anything else is not a route | ✓ |
+| API-39-006 | /late-fee | runs the nightly late-fee job and reports only counts | ✓ |
+| API-39-007 | /late-fee | counts failed contracts, logs which ones, but never puts a contract id or reason in the answer | ✓ |
+| API-39-008 | /late-fee | does not run while another process holds the job's lock, and says so | ✓ |
+| API-39-009 | /late-fee | a crash inside the job is a 500 with no detail (and Vercel will show the run as failed) | ✓ |
+| API-39-010 | the notification rounds | /notify-due-today: with no contract that qualifies it sends nothing and says so | ✓ |
+| API-39-011 | the notification rounds | /notify-overdue: with no contract that qualifies it sends nothing and says so | ✓ |
+| API-39-012 | the notification rounds | /notify-due-today: skips (without error) when no notifier is configured | ✓ |
+| API-39-013 | the notification rounds | /notify-overdue: skips (without error) when no notifier is configured | ✓ |
+| API-39-014 | the notification rounds | /notify-due-today: does not run while another process holds the lock | ✓ |
+| API-39-015 | the notification rounds | /notify-overdue: does not run while another process holds the lock | ✓ |
+| API-39-016 | the notification rounds | each job takes its own lock (a slow late-fee run does not block the notifications) | ✓ |
 
-#### API-39 · `db-url.test.ts` — db.datasourceUrl — เติม pgbouncer=true ให้ pooled URL ของ Neon
-
-อ้างอิง: DEPLOY-VERCEL
-
-| รหัส | กลุ่ม | เคส | ผล |
-|---|---|---|---|
-| API-39-001 | datasourceUrl | adds pgbouncer=true to a pooled (Neon -pooler) address and keeps the other parts | ✓ |
-| API-39-002 | datasourceUrl | does not change it when pgbouncer is already given, even as false | ✓ |
-| API-39-003 | datasourceUrl | leaves a direct Neon address, a local one and a docker one exactly as they are | ✓ |
-| API-39-004 | datasourceUrl | returns what it was given when it is not a URL, and undefined when there is nothing | ✓ |
-
-#### API-40 · `vercel-entry.test.ts` — vercel.ts + bootstrap — entry ของ Vercel Function
+#### API-40 · `db-url.test.ts` — db.datasourceUrl — เติม pgbouncer=true ให้ pooled URL ของ Neon
 
 อ้างอิง: DEPLOY-VERCEL
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| API-40-001 | the Vercel entry point | serves the same application: health, the login-protected routes, JSON errors | ✓ |
-| API-40-002 | the Vercel entry point | builds the application once and reuses it for every later request | ✓ |
-| API-40-003 | the Vercel entry point | with STORAGE_BACKEND=blob it keeps slips and import files in the Blob store | ✓ |
-| API-40-004 | the Vercel entry point | by default it keeps them on disk, never touching the Blob store | ✓ |
-| API-40-005 | the Vercel entry point | the /cron routes exist only when CRON_SECRET is set | ✓ |
-| API-40-006 | the Vercel entry point | sends the session cookie as Secure in production | ✓ |
-| API-40-007 | the Vercel entry point | a bad setting gives a plain 500 for every request, logs the reason without any value, and tells the caller nothing | ✓ |
-| API-40-008 | the Vercel entry point | recovers once the setting is fixed (the broken start is not remembered) | ✓ |
+| API-40-001 | datasourceUrl | adds pgbouncer=true to a pooled (Neon -pooler) address and keeps the other parts | ✓ |
+| API-40-002 | datasourceUrl | does not change it when pgbouncer is already given, even as false | ✓ |
+| API-40-003 | datasourceUrl | leaves a direct Neon address, a local one and a docker one exactly as they are | ✓ |
+| API-40-004 | datasourceUrl | returns what it was given when it is not a URL, and undefined when there is nothing | ✓ |
+
+#### API-41 · `vercel-entry.test.ts` — vercel.ts + bootstrap — entry ของ Vercel Function
+
+อ้างอิง: DEPLOY-VERCEL
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| API-41-001 | the Vercel entry point | serves the same application: health, the login-protected routes, JSON errors | ✓ |
+| API-41-002 | the Vercel entry point | builds the application once and reuses it for every later request | ✓ |
+| API-41-003 | the Vercel entry point | with STORAGE_BACKEND=blob it keeps slips and import files in the Blob store | ✓ |
+| API-41-004 | the Vercel entry point | by default it keeps them on disk, never touching the Blob store | ✓ |
+| API-41-005 | the Vercel entry point | the /cron routes exist only when CRON_SECRET is set | ✓ |
+| API-41-006 | the Vercel entry point | sends the session cookie as Secure in production | ✓ |
+| API-41-007 | the Vercel entry point | a bad setting gives a plain 500 for every request, logs the reason without any value, and tells the caller nothing | ✓ |
+| API-41-008 | the Vercel entry point | recovers once the setting is fixed (the broken start is not remembered) | ✓ |
 
 ## 4. เทสต์เว็บ (`web/test`)
 
@@ -998,6 +1036,7 @@
 | นำเข้าข้อมูล | `imports.test.tsx` | F10 | หน้านำเข้าข้อมูล | 27 |
 | ผู้ยืมแจ้งชำระ | `payment-submissions.test.tsx` | F5-CR1 · DES-017 | ผู้ยืมส่งสลิป / admin ตรวจและยืนยัน | 24 |
 | พอร์ทัลผู้ยืม | `borrower-portal.test.tsx` | F3 · F8 | หน้าผู้ยืม: สัญญา ขอยืม | 21 |
+| พอร์ทัลผู้ยืม | `borrower-profile.test.tsx` | F1 · F3 · DES-021 | หน้า "ข้อมูลของฉัน", ข้อความเตือนหน้าหลัก, ปิดปุ่มส่งคำขอจนกว่าจะกรอกครบ | 13 |
 | พอร์ทัลผู้ยืม | `interest-estimate.test.tsx` | F3 · DES-019 | components/InterestEstimate + หน้าขอยืม — กล่องดอกเบี้ยโดยประมาณ | 17 |
 | พอร์ทัลผู้ยืม | `payment-account.test.tsx` | F5 · DES-020 | modal บัญชีที่ต้องโอน (หน้าขอยืม/แจ้งชำระ) + ฟอร์มตั้งค่าฝั่ง admin | 17 |
 | รายงาน | `period-picker.test.tsx` | F9 | components/reports/PeriodPicker | 6 |
@@ -1007,7 +1046,7 @@
 | สิทธิ์และเมนู | `gate-and-pages.test.tsx` | F1 | layouts, login, PDPA, เปลี่ยนรหัสผ่าน, หน้าแรก | 26 |
 | สิทธิ์และเมนู | `gate.test.tsx` | F1 | components/Gate — ป้องกันหน้า, ลองใหม่เมื่อเชื่อมต่อไม่ได้ | 6 |
 | สิทธิ์และเมนู | `session-store.test.ts` | F1 | lib/session-store — สถานะผู้ใช้ | 9 |
-| หน้า admin | `admin-borrowers.test.tsx` | F1 · F8 | หน้าผู้ยืม | 23 |
+| หน้า admin | `admin-borrowers.test.tsx` | F1 · F8 | หน้าผู้ยืม | 25 |
 | หน้า admin | `admin-contracts.test.tsx` | F4 | หน้ารายการสัญญา | 6 |
 | หน้า admin | `admin-ledger.test.tsx` | F4 · F5 · DES-016 | หน้าสัญญา: จ่ายเงิน รับชำระ แก้/ลบ | 38 |
 | หน้า admin | `admin-requests.test.tsx` | F3 | หน้าคำขอยืม | 17 |
@@ -1018,7 +1057,7 @@
 | PWA | `next-config.test.ts` | Security | next.config — header ความปลอดภัย, proxy | 5 |
 | PWA | `register-sw.test.tsx` | F7 | components/RegisterServiceWorker | 5 |
 | PWA | `service-worker.test.ts` | F7 | public/sw.js — offline, push, notificationclick | 14 |
-| **รวม** | 30 ไฟล์ | | | **466** |
+| **รวม** | 31 ไฟล์ | | | **481** |
 
 ### รายการเคสทั้งหมด
 
@@ -1262,441 +1301,463 @@
 | WEB-10-020 | my contract detail | never shows the lender's slips, rates, who recorded a payment, admin notes or import flags | ✓ |
 | WEB-10-021 | my contract detail | a closed contract says it is fully paid | ✓ |
 
-#### WEB-11 · `interest-estimate.test.tsx` — components/InterestEstimate + หน้าขอยืม — กล่องดอกเบี้ยโดยประมาณ
+#### WEB-11 · `borrower-profile.test.tsx` — หน้า "ข้อมูลของฉัน", ข้อความเตือนหน้าหลัก, ปิดปุ่มส่งคำขอจนกว่าจะกรอกครบ
+
+อ้างอิง: F1 · F3 · DES-021
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| WEB-11-001 | ข้อมูลของฉัน (the borrower's own details) | shows the name and login as plain text (only the lender changes the name), and asks for the three details | ✓ |
+| WEB-11-002 | ข้อมูลของฉัน (the borrower's own details) | shows what is already there, and says it is complete with a way on to the loan request | ✓ |
+| WEB-11-003 | ข้อมูลของฉัน (the borrower's own details) | saves the three details, sends them trimmed, and then shows the profile as complete | ✓ |
+| WEB-11-004 | ข้อมูลของฉัน (the borrower's own details) | explains a mistake in each box and calls nothing | ✓ |
+| WEB-11-005 | ข้อมูลของฉัน (the borrower's own details) | sends only what changed, and says so when nothing did | ✓ |
+| WEB-11-006 | ข้อมูลของฉัน (the borrower's own details) | shows the API's refusal instead of saving silently | ✓ |
+| WEB-11-007 | ข้อมูลของฉัน (the borrower's own details) | shows an error when the profile cannot be loaded, not an empty form | ✓ |
+| WEB-11-008 | the reminder on the borrower's home page | asks the borrower to fill in their details, with a link to the page, while they are incomplete | ✓ |
+| WEB-11-009 | the reminder on the borrower's home page | says nothing once they are complete | ✓ |
+| WEB-11-010 | the reminder on the borrower's home page | does not nag when the profile could not be read (the API still enforces the rule) | ✓ |
+| WEB-11-011 | the loan request form needs the details first | while the details are incomplete: explains why, links to the page, and the send button is off | ✓ |
+| WEB-11-012 | the loan request form needs the details first | when complete: no warning, and the request is sent | ✓ |
+| WEB-11-013 | the loan request form needs the details first | shows the server's PROFILE_INCOMPLETE answer if the page did not know (the rule is enforced by the API) | ✓ |
+
+#### WEB-12 · `interest-estimate.test.tsx` — components/InterestEstimate + หน้าขอยืม — กล่องดอกเบี้ยโดยประมาณ
 
 อ้างอิง: F3 · DES-019
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-11-001 | InterestEstimate | shows nothing until the amount is a usable amount, and asks the API nothing for a bad one | ✓ |
-| WEB-11-002 | InterestEstimate | with just an amount: asks for that amount only, then shows the interest, the total, the 30 days and the rate | ✓ |
-| WEB-11-003 | InterestEstimate | says plainly that it is an estimate, counted from the transfer day, rounded up, and that late fees come on top | ✓ |
-| WEB-11-004 | InterestEstimate | with a due date: sends it too and explains the days it used | ✓ |
-| WEB-11-005 | InterestEstimate | a due date that is today is left out of the question (the form explains it), the 30 days answer is shown | ✓ |
-| WEB-11-006 | InterestEstimate | a due date that is in the past is left out of the question (the form explains it), the 30 days answer is shown | ✓ |
-| WEB-11-007 | InterestEstimate | a due date that is half typed is left out of the question (the form explains it), the 30 days answer is shown | ✓ |
-| WEB-11-008 | InterestEstimate | whole baht have no decimals and satang keep two | ✓ |
-| WEB-11-009 | InterestEstimate | typing quickly asks once, for the final amount (debounce) | ✓ |
-| WEB-11-010 | InterestEstimate | changing the amount keeps the last figure (dimmed, marked busy) until the new one arrives | ✓ |
-| WEB-11-011 | InterestEstimate | never shows an old answer next to a newer amount when the newer one fails | ✓ |
-| WEB-11-012 | InterestEstimate | when the lender has not set the rate, shows the API's own words as a warning and no figures | ✓ |
-| WEB-11-013 | InterestEstimate | when the server cannot be reached, says so instead of showing nothing | ✓ |
-| WEB-11-014 | InterestEstimate | clearing the amount removes the box | ✓ |
-| WEB-11-015 | InterestEstimate | an answer that arrives after the amount was cleared is not shown | ✓ |
-| WEB-11-016 | the request form with the estimate | shows the estimate under the amount while typing, and sending the request still sends only the amount and the due date | ✓ |
-| WEB-11-017 | the request form with the estimate | tells the borrower the figure is a guide: the amount hint mentions the estimate | ✓ |
+| WEB-12-001 | InterestEstimate | shows nothing until the amount is a usable amount, and asks the API nothing for a bad one | ✓ |
+| WEB-12-002 | InterestEstimate | with just an amount: asks for that amount only, then shows the interest, the total, the 30 days and the rate | ✓ |
+| WEB-12-003 | InterestEstimate | says plainly that it is an estimate, counted from the transfer day, rounded up, and that late fees come on top | ✓ |
+| WEB-12-004 | InterestEstimate | with a due date: sends it too and explains the days it used | ✓ |
+| WEB-12-005 | InterestEstimate | a due date that is today is left out of the question (the form explains it), the 30 days answer is shown | ✓ |
+| WEB-12-006 | InterestEstimate | a due date that is in the past is left out of the question (the form explains it), the 30 days answer is shown | ✓ |
+| WEB-12-007 | InterestEstimate | a due date that is half typed is left out of the question (the form explains it), the 30 days answer is shown | ✓ |
+| WEB-12-008 | InterestEstimate | whole baht have no decimals and satang keep two | ✓ |
+| WEB-12-009 | InterestEstimate | typing quickly asks once, for the final amount (debounce) | ✓ |
+| WEB-12-010 | InterestEstimate | changing the amount keeps the last figure (dimmed, marked busy) until the new one arrives | ✓ |
+| WEB-12-011 | InterestEstimate | never shows an old answer next to a newer amount when the newer one fails | ✓ |
+| WEB-12-012 | InterestEstimate | when the lender has not set the rate, shows the API's own words as a warning and no figures | ✓ |
+| WEB-12-013 | InterestEstimate | when the server cannot be reached, says so instead of showing nothing | ✓ |
+| WEB-12-014 | InterestEstimate | clearing the amount removes the box | ✓ |
+| WEB-12-015 | InterestEstimate | an answer that arrives after the amount was cleared is not shown | ✓ |
+| WEB-12-016 | the request form with the estimate | shows the estimate under the amount while typing, and sending the request still sends only the amount and the due date | ✓ |
+| WEB-12-017 | the request form with the estimate | tells the borrower the figure is a guide: the amount hint mentions the estimate | ✓ |
 
-#### WEB-12 · `payment-account.test.tsx` — modal บัญชีที่ต้องโอน (หน้าขอยืม/แจ้งชำระ) + ฟอร์มตั้งค่าฝั่ง admin
+#### WEB-13 · `payment-account.test.tsx` — modal บัญชีที่ต้องโอน (หน้าขอยืม/แจ้งชำระ) + ฟอร์มตั้งค่าฝั่ง admin
 
 อ้างอิง: F5 · DES-020
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-12-001 | the borrower's 'which account do I transfer to?' dialog | asks the API nothing until the button is pressed | ✓ |
-| WEB-12-002 | the borrower's 'which account do I transfer to?' dialog | shows the bank, the account name and the number the lender set | ✓ |
-| WEB-12-003 | the borrower's 'which account do I transfer to?' dialog | explains the next step in words that fit where it was opened from | ✓ |
-| WEB-12-004 | the borrower's 'which account do I transfer to?' dialog | copies the number WITHOUT the hyphens (what a banking app expects) and says so | ✓ |
-| WEB-12-005 | the borrower's 'which account do I transfer to?' dialog | when copying is not possible it says to write the number down, instead of pretending | ✓ |
-| WEB-12-006 | the borrower's 'which account do I transfer to?' dialog | tells the borrower to contact the lender when no account is set, and offers no copy button | ✓ |
-| WEB-12-007 | the borrower's 'which account do I transfer to?' dialog | shows the API's error, not a blank box | ✓ |
-| WEB-12-008 | the borrower's 'which account do I transfer to?' dialog | asks again each time it opens, so a change the lender made is seen at once | ✓ |
-| WEB-12-009 | the borrower's 'which account do I transfer to?' dialog | clears an old 'copied' message when it is opened again | ✓ |
-| WEB-12-010 | where the button is | is on the loan request page, and opens the account from there | ✓ |
-| WEB-12-011 | where the button is | is on the payment-slip form of a contract, and opens the account from there | ✓ |
-| WEB-12-012 | the admin sets the account (settings page) | warns when no account is set, and saves the first account at once (no confirm), sending trimmed text | ✓ |
-| WEB-12-013 | the admin sets the account (settings page) | explains a mistake in each box before calling the API | ✓ |
-| WEB-12-014 | the admin sets the account (settings page) | shows the saved account, says nothing changed when nothing did, and does not call the API | ✓ |
-| WEB-12-015 | the admin sets the account (settings page) | changing an account in use needs a second click that shows from-and-to; 'cancel' sends nothing | ✓ |
-| WEB-12-016 | the admin sets the account (settings page) | emptying all three boxes removes the account, after a confirm | ✓ |
-| WEB-12-017 | the admin sets the account (settings page) | shows the API's refusal instead of saving silently | ✓ |
+| WEB-13-001 | the borrower's 'which account do I transfer to?' dialog | asks the API nothing until the button is pressed | ✓ |
+| WEB-13-002 | the borrower's 'which account do I transfer to?' dialog | shows the bank, the account name and the number the lender set | ✓ |
+| WEB-13-003 | the borrower's 'which account do I transfer to?' dialog | explains the next step in words that fit where it was opened from | ✓ |
+| WEB-13-004 | the borrower's 'which account do I transfer to?' dialog | copies the number WITHOUT the hyphens (what a banking app expects) and says so | ✓ |
+| WEB-13-005 | the borrower's 'which account do I transfer to?' dialog | when copying is not possible it says to write the number down, instead of pretending | ✓ |
+| WEB-13-006 | the borrower's 'which account do I transfer to?' dialog | tells the borrower to contact the lender when no account is set, and offers no copy button | ✓ |
+| WEB-13-007 | the borrower's 'which account do I transfer to?' dialog | shows the API's error, not a blank box | ✓ |
+| WEB-13-008 | the borrower's 'which account do I transfer to?' dialog | asks again each time it opens, so a change the lender made is seen at once | ✓ |
+| WEB-13-009 | the borrower's 'which account do I transfer to?' dialog | clears an old 'copied' message when it is opened again | ✓ |
+| WEB-13-010 | where the button is | is on the loan request page, and opens the account from there | ✓ |
+| WEB-13-011 | where the button is | is on the payment-slip form of a contract, and opens the account from there | ✓ |
+| WEB-13-012 | the admin sets the account (settings page) | warns when no account is set, and saves the first account at once (no confirm), sending trimmed text | ✓ |
+| WEB-13-013 | the admin sets the account (settings page) | explains a mistake in each box before calling the API | ✓ |
+| WEB-13-014 | the admin sets the account (settings page) | shows the saved account, says nothing changed when nothing did, and does not call the API | ✓ |
+| WEB-13-015 | the admin sets the account (settings page) | changing an account in use needs a second click that shows from-and-to; 'cancel' sends nothing | ✓ |
+| WEB-13-016 | the admin sets the account (settings page) | emptying all three boxes removes the account, after a confirm | ✓ |
+| WEB-13-017 | the admin sets the account (settings page) | shows the API's refusal instead of saving silently | ✓ |
 
-#### WEB-13 · `period-picker.test.tsx` — components/reports/PeriodPicker
+#### WEB-14 · `period-picker.test.tsx` — components/reports/PeriodPicker
 
 อ้างอิง: F9
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-13-001 | PeriodPicker | offers the four kinds of period, and starts on the current month | ✓ |
-| WEB-13-002 | PeriodPicker | does not ask the API until the button is pressed, then asks once with the chosen month | ✓ |
-| WEB-13-003 | PeriodPicker | year: shows only the year box, and sends the year | ✓ |
-| WEB-13-004 | PeriodPicker | a bad year is explained and nothing is sent | ✓ |
-| WEB-13-005 | PeriodPicker | range: two day boxes; an end before the start is refused, a good range is sent, and the error goes away | ✓ |
-| WEB-13-006 | PeriodPicker | all time: no date box and an empty query | ✓ |
+| WEB-14-001 | PeriodPicker | offers the four kinds of period, and starts on the current month | ✓ |
+| WEB-14-002 | PeriodPicker | does not ask the API until the button is pressed, then asks once with the chosen month | ✓ |
+| WEB-14-003 | PeriodPicker | year: shows only the year box, and sends the year | ✓ |
+| WEB-14-004 | PeriodPicker | a bad year is explained and nothing is sent | ✓ |
+| WEB-14-005 | PeriodPicker | range: two day boxes; an end before the start is refused, a good range is sent, and the error goes away | ✓ |
+| WEB-14-006 | PeriodPicker | all time: no date box and an empty query | ✓ |
 
-#### WEB-14 · `reports.test.tsx` — หน้ารายงาน — แสดงตัวเลขจาก API ตามที่ได้รับ
+#### WEB-15 · `reports.test.tsx` — หน้ารายงาน — แสดงตัวเลขจาก API ตามที่ได้รับ
 
 อ้างอิง: F9 · DES-015
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-14-001 | profit & loss | opens on the current month and shows the cash and accrual bases side by side | ✓ |
-| WEB-14-002 | profit & loss | shows the API's totals as they are and never adds up the parts itself | ✓ |
-| WEB-14-003 | profit & loss | explains that income is only interest and late fees | ✓ |
-| WEB-14-004 | profit & loss | asks for a year, a custom range or all time only when the button is pressed | ✓ |
-| WEB-14-005 | profit & loss | does not call the API for a period it would refuse | ✓ |
-| WEB-14-006 | profit & loss | shows the API's message when the report cannot be produced | ✓ |
-| WEB-14-007 | late payers | lists borrowers in the API's order with their late contracts | ✓ |
-| WEB-14-008 | late payers | says so when nobody was late | ✓ |
-| WEB-14-009 | late payers | pages 20 at a time | ✓ |
-| WEB-14-010 | late payers | goes back to the first page when the period changes | ✓ |
-| WEB-14-011 | outstanding | shows the balance as of today, as the API reports it | ✓ |
-| WEB-14-012 | outstanding | asks for another day, but not a day in the future | ✓ |
-| WEB-14-013 | outstanding | warns when contracts had to be left out because their history is inconsistent | ✓ |
-| WEB-14-014 | outstanding | does not call a past day 'today' | ✓ |
-| WEB-14-015 | borrower summary | shows the counts, the on-time rate and what is owed, from the API | ✓ |
-| WEB-14-016 | borrower summary | a borrower with no verdict yet has no percentage, not 0% | ✓ |
-| WEB-14-017 | borrower summary | says so when there is nothing in the period | ✓ |
-| WEB-14-018 | borrower summary | links each borrower to the borrower's page | ✓ |
-| WEB-14-019 | tabs | shows one report at a time and keeps the period picker for all but the outstanding balance | ✓ |
+| WEB-15-001 | profit & loss | opens on the current month and shows the cash and accrual bases side by side | ✓ |
+| WEB-15-002 | profit & loss | shows the API's totals as they are and never adds up the parts itself | ✓ |
+| WEB-15-003 | profit & loss | explains that income is only interest and late fees | ✓ |
+| WEB-15-004 | profit & loss | asks for a year, a custom range or all time only when the button is pressed | ✓ |
+| WEB-15-005 | profit & loss | does not call the API for a period it would refuse | ✓ |
+| WEB-15-006 | profit & loss | shows the API's message when the report cannot be produced | ✓ |
+| WEB-15-007 | late payers | lists borrowers in the API's order with their late contracts | ✓ |
+| WEB-15-008 | late payers | says so when nobody was late | ✓ |
+| WEB-15-009 | late payers | pages 20 at a time | ✓ |
+| WEB-15-010 | late payers | goes back to the first page when the period changes | ✓ |
+| WEB-15-011 | outstanding | shows the balance as of today, as the API reports it | ✓ |
+| WEB-15-012 | outstanding | asks for another day, but not a day in the future | ✓ |
+| WEB-15-013 | outstanding | warns when contracts had to be left out because their history is inconsistent | ✓ |
+| WEB-15-014 | outstanding | does not call a past day 'today' | ✓ |
+| WEB-15-015 | borrower summary | shows the counts, the on-time rate and what is owed, from the API | ✓ |
+| WEB-15-016 | borrower summary | a borrower with no verdict yet has no percentage, not 0% | ✓ |
+| WEB-15-017 | borrower summary | says so when there is nothing in the period | ✓ |
+| WEB-15-018 | borrower summary | links each borrower to the borrower's page | ✓ |
+| WEB-15-019 | tabs | shows one report at a time and keeps the period picker for all but the outstanding balance | ✓ |
 
-#### WEB-15 · `access.test.ts` — lib/access — หน้าที่แต่ละบทบาทเข้าได้
-
-อ้างอิง: F1
-
-| รหัส | กลุ่ม | เคส | ผล |
-|---|---|---|---|
-| WEB-15-001 | destinationFor | sends anonymous visitors to the login page | ✓ |
-| WEB-15-002 | destinationFor | sends an admin to /admin and a consenting borrower to /me | ✓ |
-| WEB-15-003 | destinationFor | sends a borrower without PDPA acceptance to the PDPA page first | ✓ |
-| WEB-15-004 | destinationFor | forces a password change before everything else, for both roles | ✓ |
-| WEB-15-005 | resolveAccess (what each page lets in) | anonymous on a "anonymous" page | ✓ |
-| WEB-15-006 | resolveAccess (what each page lets in) | admin on a "anonymous" page | ✓ |
-| WEB-15-007 | resolveAccess (what each page lets in) | borrower on a "anonymous" page | ✓ |
-| WEB-15-008 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "anonymous" page | ✓ |
-| WEB-15-009 | resolveAccess (what each page lets in) | mustChange on a "anonymous" page | ✓ |
-| WEB-15-010 | resolveAccess (what each page lets in) | anonymous on a "change-password" page | ✓ |
-| WEB-15-011 | resolveAccess (what each page lets in) | admin on a "change-password" page | ✓ |
-| WEB-15-012 | resolveAccess (what each page lets in) | borrower on a "change-password" page | ✓ |
-| WEB-15-013 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "change-password" page | ✓ |
-| WEB-15-014 | resolveAccess (what each page lets in) | mustChange on a "change-password" page | ✓ |
-| WEB-15-015 | resolveAccess (what each page lets in) | anonymous on a "pdpa" page | ✓ |
-| WEB-15-016 | resolveAccess (what each page lets in) | admin on a "pdpa" page | ✓ |
-| WEB-15-017 | resolveAccess (what each page lets in) | borrower on a "pdpa" page | ✓ |
-| WEB-15-018 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "pdpa" page | ✓ |
-| WEB-15-019 | resolveAccess (what each page lets in) | mustChange on a "pdpa" page | ✓ |
-| WEB-15-020 | resolveAccess (what each page lets in) | anonymous on a "admin" page | ✓ |
-| WEB-15-021 | resolveAccess (what each page lets in) | admin on a "admin" page | ✓ |
-| WEB-15-022 | resolveAccess (what each page lets in) | borrower on a "admin" page | ✓ |
-| WEB-15-023 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "admin" page | ✓ |
-| WEB-15-024 | resolveAccess (what each page lets in) | mustChange on a "admin" page | ✓ |
-| WEB-15-025 | resolveAccess (what each page lets in) | anonymous on a "borrower" page | ✓ |
-| WEB-15-026 | resolveAccess (what each page lets in) | admin on a "borrower" page | ✓ |
-| WEB-15-027 | resolveAccess (what each page lets in) | borrower on a "borrower" page | ✓ |
-| WEB-15-028 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "borrower" page | ✓ |
-| WEB-15-029 | resolveAccess (what each page lets in) | mustChange on a "borrower" page | ✓ |
-| WEB-15-030 | resolveAccess (what each page lets in) | never lets a borrower into an admin page | ✓ |
-| WEB-15-031 | resolveAccess (what each page lets in) | never lets an admin into a borrower page | ✓ |
-| WEB-15-032 | menuFor | shows an admin the admin pages only | ✓ |
-| WEB-15-033 | menuFor | shows a borrower no admin page | ✓ |
-| WEB-15-034 | menuFor | is written in Thai | ✓ |
-
-#### WEB-16 · `app-shell.test.tsx` — components/AppShell — เมนูตามบทบาท, ออกจากระบบ
+#### WEB-16 · `access.test.ts` — lib/access — หน้าที่แต่ละบทบาทเข้าได้
 
 อ้างอิง: F1
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-16-001 | AppShell: the frame of every logged-in page | shows nothing when nobody is logged in | ✓ |
-| WEB-16-002 | AppShell: the frame of every logged-in page | shows who is logged in with the Thai role name, and the page content | ✓ |
-| WEB-16-003 | AppShell: the frame of every logged-in page | an admin sees the admin menu, in order, every entry a real link | ✓ |
-| WEB-16-004 | AppShell: the frame of every logged-in page | a borrower sees only the borrower menu and nothing of the admin pages | ✓ |
-| WEB-16-005 | AppShell: the frame of every logged-in page | marks exactly the current page, and the home entry only on its own page | ✓ |
-| WEB-16-006 | AppShell: the frame of every logged-in page | logging out calls the API, then goes to the login page | ✓ |
-| WEB-16-007 | AppShell: the frame of every logged-in page | still goes to the login page, with this browser signed out, when the server cannot be reached | ✓ |
-| WEB-16-008 | AppShell: the frame of every logged-in page | uses the wide layout only when asked | ✓ |
+| WEB-16-001 | destinationFor | sends anonymous visitors to the login page | ✓ |
+| WEB-16-002 | destinationFor | sends an admin to /admin and a consenting borrower to /me | ✓ |
+| WEB-16-003 | destinationFor | sends a borrower without PDPA acceptance to the PDPA page first | ✓ |
+| WEB-16-004 | destinationFor | forces a password change before everything else, for both roles | ✓ |
+| WEB-16-005 | resolveAccess (what each page lets in) | anonymous on a "anonymous" page | ✓ |
+| WEB-16-006 | resolveAccess (what each page lets in) | admin on a "anonymous" page | ✓ |
+| WEB-16-007 | resolveAccess (what each page lets in) | borrower on a "anonymous" page | ✓ |
+| WEB-16-008 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "anonymous" page | ✓ |
+| WEB-16-009 | resolveAccess (what each page lets in) | mustChange on a "anonymous" page | ✓ |
+| WEB-16-010 | resolveAccess (what each page lets in) | anonymous on a "change-password" page | ✓ |
+| WEB-16-011 | resolveAccess (what each page lets in) | admin on a "change-password" page | ✓ |
+| WEB-16-012 | resolveAccess (what each page lets in) | borrower on a "change-password" page | ✓ |
+| WEB-16-013 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "change-password" page | ✓ |
+| WEB-16-014 | resolveAccess (what each page lets in) | mustChange on a "change-password" page | ✓ |
+| WEB-16-015 | resolveAccess (what each page lets in) | anonymous on a "pdpa" page | ✓ |
+| WEB-16-016 | resolveAccess (what each page lets in) | admin on a "pdpa" page | ✓ |
+| WEB-16-017 | resolveAccess (what each page lets in) | borrower on a "pdpa" page | ✓ |
+| WEB-16-018 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "pdpa" page | ✓ |
+| WEB-16-019 | resolveAccess (what each page lets in) | mustChange on a "pdpa" page | ✓ |
+| WEB-16-020 | resolveAccess (what each page lets in) | anonymous on a "admin" page | ✓ |
+| WEB-16-021 | resolveAccess (what each page lets in) | admin on a "admin" page | ✓ |
+| WEB-16-022 | resolveAccess (what each page lets in) | borrower on a "admin" page | ✓ |
+| WEB-16-023 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "admin" page | ✓ |
+| WEB-16-024 | resolveAccess (what each page lets in) | mustChange on a "admin" page | ✓ |
+| WEB-16-025 | resolveAccess (what each page lets in) | anonymous on a "borrower" page | ✓ |
+| WEB-16-026 | resolveAccess (what each page lets in) | admin on a "borrower" page | ✓ |
+| WEB-16-027 | resolveAccess (what each page lets in) | borrower on a "borrower" page | ✓ |
+| WEB-16-028 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "borrower" page | ✓ |
+| WEB-16-029 | resolveAccess (what each page lets in) | mustChange on a "borrower" page | ✓ |
+| WEB-16-030 | resolveAccess (what each page lets in) | never lets a borrower into an admin page | ✓ |
+| WEB-16-031 | resolveAccess (what each page lets in) | never lets an admin into a borrower page | ✓ |
+| WEB-16-032 | menuFor | shows an admin the admin pages only | ✓ |
+| WEB-16-033 | menuFor | shows a borrower no admin page | ✓ |
+| WEB-16-034 | menuFor | is written in Thai | ✓ |
 
-#### WEB-17 · `gate-and-pages.test.tsx` — layouts, login, PDPA, เปลี่ยนรหัสผ่าน, หน้าแรก
-
-อ้างอิง: F1
-
-| รหัส | กลุ่ม | เคส | ผล |
-|---|---|---|---|
-| WEB-17-001 | page guards | an anonymous visitor to /admin is sent to the login page and sees nothing of the page | ✓ |
-| WEB-17-002 | page guards | a borrower on an admin page is sent to /me and sees nothing of the page | ✓ |
-| WEB-17-003 | page guards | a borrower without PDPA acceptance is sent to the PDPA page before the borrower home | ✓ |
-| WEB-17-004 | page guards | a borrower who must change the password is sent there before PDPA or the home | ✓ |
-| WEB-17-005 | page guards | an admin sees the admin page, with the admin menu only | ✓ |
-| WEB-17-006 | page guards | a consenting borrower sees the borrower home with no admin link at all | ✓ |
-| WEB-17-007 | page guards | a logged-in user opening the login page is sent to where they belong | ✓ |
-| WEB-17-008 | page guards | shows a retry when the server cannot be reached, instead of logging out or showing the page | ✓ |
-| WEB-17-009 | page guards | the root page redirects by role (nothing is shown at /) | ✓ |
-| WEB-17-010 | login page | logs an admin in and sends them to /admin | ✓ |
-| WEB-17-011 | login page | sends a borrower without PDPA acceptance straight to the PDPA page | ✓ |
-| WEB-17-012 | login page | goes to the first-password page when the password must be changed | ✓ |
-| WEB-17-013 | login page | shows the API's Thai message on a wrong password, clears the password and does not navigate | ✓ |
-| WEB-17-014 | login page | shows the lock message when too many attempts were made | ✓ |
-| WEB-17-015 | login page | asks for both fields without calling the API | ✓ |
-| WEB-17-016 | login page | never navigates to an address taken from the URL (no ?next= redirect) | ✓ |
-| WEB-17-017 | change-password page | checks the new password before calling the API | ✓ |
-| WEB-17-018 | change-password page | refuses the same password as before | ✓ |
-| WEB-17-019 | change-password page | changes the password and then goes where the user belongs (PDPA next for a borrower) | ✓ |
-| WEB-17-020 | change-password page | shows the API's message when the current password is wrong | ✓ |
-| WEB-17-021 | change-password page | is closed to people who do not need to change the password | ✓ |
-| WEB-17-022 | PDPA page | shows the terms, and the accept button stays disabled until the box is ticked | ✓ |
-| WEB-17-023 | PDPA page | sends the version that was shown, then moves on to the borrower home | ✓ |
-| WEB-17-024 | PDPA page | declining logs the borrower out | ✓ |
-| WEB-17-025 | PDPA page | is not open to an admin or to a borrower who already accepted | ✓ |
-| WEB-17-026 | PDPA page | the draft terms are marked as needing approval and are all in Thai | ✓ |
-
-#### WEB-18 · `gate.test.tsx` — components/Gate — ป้องกันหน้า, ลองใหม่เมื่อเชื่อมต่อไม่ได้
+#### WEB-17 · `app-shell.test.tsx` — components/AppShell — เมนูตามบทบาท, ออกจากระบบ
 
 อ้างอิง: F1
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-18-001 | Gate | shows a spinner and none of the page while it learns who is there | ✓ |
-| WEB-18-002 | Gate | shows the page to the right kind of user | ✓ |
-| WEB-18-003 | Gate | an admin on a borrower page is sent to /admin and sees nothing of the page | ✓ |
-| WEB-18-004 | Gate | a logged-in user on the login page is sent to the page they belong to | ✓ |
-| WEB-18-005 | Gate | when the server cannot be reached it says so, and 'try again' asks again and then shows the page | ✓ |
-| WEB-18-006 | Gate | an expired session (401) sends the visitor to the login page | ✓ |
+| WEB-17-001 | AppShell: the frame of every logged-in page | shows nothing when nobody is logged in | ✓ |
+| WEB-17-002 | AppShell: the frame of every logged-in page | shows who is logged in with the Thai role name, and the page content | ✓ |
+| WEB-17-003 | AppShell: the frame of every logged-in page | an admin sees the admin menu, in order, every entry a real link | ✓ |
+| WEB-17-004 | AppShell: the frame of every logged-in page | a borrower sees only the borrower menu and nothing of the admin pages | ✓ |
+| WEB-17-005 | AppShell: the frame of every logged-in page | marks exactly the current page, and the home entry only on its own page | ✓ |
+| WEB-17-006 | AppShell: the frame of every logged-in page | logging out calls the API, then goes to the login page | ✓ |
+| WEB-17-007 | AppShell: the frame of every logged-in page | still goes to the login page, with this browser signed out, when the server cannot be reached | ✓ |
+| WEB-17-008 | AppShell: the frame of every logged-in page | uses the wide layout only when asked | ✓ |
 
-#### WEB-19 · `session-store.test.ts` — lib/session-store — สถานะผู้ใช้
+#### WEB-18 · `gate-and-pages.test.tsx` — layouts, login, PDPA, เปลี่ยนรหัสผ่าน, หน้าแรก
 
 อ้างอิง: F1
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-19-001 | session store | learns who is logged in from GET /auth/me | ✓ |
-| WEB-19-002 | session store | is anonymous on 401, but 'error' (not logged out) when the server cannot be reached | ✓ |
-| WEB-19-003 | session store | treats a malformed /auth/me answer as an error, never as a user | ✓ |
-| WEB-19-004 | session store | login posts the credentials, then reloads the user (including PDPA status) | ✓ |
-| WEB-19-005 | session store | a failed login leaves the store anonymous and shows the API's message | ✓ |
-| WEB-19-006 | session store | logout forgets the user even if the server call fails | ✓ |
-| WEB-19-007 | session store | a 401 on any call logs the page out | ✓ |
-| WEB-19-008 | session store | acceptPdpa sends the version it was given and reloads the user | ✓ |
-| WEB-19-009 | session store | changePassword sends both passwords and reloads the user | ✓ |
+| WEB-18-001 | page guards | an anonymous visitor to /admin is sent to the login page and sees nothing of the page | ✓ |
+| WEB-18-002 | page guards | a borrower on an admin page is sent to /me and sees nothing of the page | ✓ |
+| WEB-18-003 | page guards | a borrower without PDPA acceptance is sent to the PDPA page before the borrower home | ✓ |
+| WEB-18-004 | page guards | a borrower who must change the password is sent there before PDPA or the home | ✓ |
+| WEB-18-005 | page guards | an admin sees the admin page, with the admin menu only | ✓ |
+| WEB-18-006 | page guards | a consenting borrower sees the borrower home with no admin link at all | ✓ |
+| WEB-18-007 | page guards | a logged-in user opening the login page is sent to where they belong | ✓ |
+| WEB-18-008 | page guards | shows a retry when the server cannot be reached, instead of logging out or showing the page | ✓ |
+| WEB-18-009 | page guards | the root page redirects by role (nothing is shown at /) | ✓ |
+| WEB-18-010 | login page | logs an admin in and sends them to /admin | ✓ |
+| WEB-18-011 | login page | sends a borrower without PDPA acceptance straight to the PDPA page | ✓ |
+| WEB-18-012 | login page | goes to the first-password page when the password must be changed | ✓ |
+| WEB-18-013 | login page | shows the API's Thai message on a wrong password, clears the password and does not navigate | ✓ |
+| WEB-18-014 | login page | shows the lock message when too many attempts were made | ✓ |
+| WEB-18-015 | login page | asks for both fields without calling the API | ✓ |
+| WEB-18-016 | login page | never navigates to an address taken from the URL (no ?next= redirect) | ✓ |
+| WEB-18-017 | change-password page | checks the new password before calling the API | ✓ |
+| WEB-18-018 | change-password page | refuses the same password as before | ✓ |
+| WEB-18-019 | change-password page | changes the password and then goes where the user belongs (PDPA next for a borrower) | ✓ |
+| WEB-18-020 | change-password page | shows the API's message when the current password is wrong | ✓ |
+| WEB-18-021 | change-password page | is closed to people who do not need to change the password | ✓ |
+| WEB-18-022 | PDPA page | shows the terms, and the accept button stays disabled until the box is ticked | ✓ |
+| WEB-18-023 | PDPA page | sends the version that was shown, then moves on to the borrower home | ✓ |
+| WEB-18-024 | PDPA page | declining logs the borrower out | ✓ |
+| WEB-18-025 | PDPA page | is not open to an admin or to a borrower who already accepted | ✓ |
+| WEB-18-026 | PDPA page | the draft terms are marked as needing approval and are all in Thai | ✓ |
 
-#### WEB-20 · `admin-borrowers.test.tsx` — หน้าผู้ยืม
+#### WEB-19 · `gate.test.tsx` — components/Gate — ป้องกันหน้า, ลองใหม่เมื่อเชื่อมต่อไม่ได้
+
+อ้างอิง: F1
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| WEB-19-001 | Gate | shows a spinner and none of the page while it learns who is there | ✓ |
+| WEB-19-002 | Gate | shows the page to the right kind of user | ✓ |
+| WEB-19-003 | Gate | an admin on a borrower page is sent to /admin and sees nothing of the page | ✓ |
+| WEB-19-004 | Gate | a logged-in user on the login page is sent to the page they belong to | ✓ |
+| WEB-19-005 | Gate | when the server cannot be reached it says so, and 'try again' asks again and then shows the page | ✓ |
+| WEB-19-006 | Gate | an expired session (401) sends the visitor to the login page | ✓ |
+
+#### WEB-20 · `session-store.test.ts` — lib/session-store — สถานะผู้ใช้
+
+อ้างอิง: F1
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| WEB-20-001 | session store | learns who is logged in from GET /auth/me | ✓ |
+| WEB-20-002 | session store | is anonymous on 401, but 'error' (not logged out) when the server cannot be reached | ✓ |
+| WEB-20-003 | session store | treats a malformed /auth/me answer as an error, never as a user | ✓ |
+| WEB-20-004 | session store | login posts the credentials, then reloads the user (including PDPA status) | ✓ |
+| WEB-20-005 | session store | a failed login leaves the store anonymous and shows the API's message | ✓ |
+| WEB-20-006 | session store | logout forgets the user even if the server call fails | ✓ |
+| WEB-20-007 | session store | a 401 on any call logs the page out | ✓ |
+| WEB-20-008 | session store | acceptPdpa sends the version it was given and reloads the user | ✓ |
+| WEB-20-009 | session store | changePassword sends both passwords and reloads the user | ✓ |
+
+#### WEB-21 · `admin-borrowers.test.tsx` — หน้าผู้ยืม
 
 อ้างอิง: F1 · F8
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-20-001 | borrower list | lists borrowers with the account number masked and the status in words | ✓ |
-| WEB-20-002 | borrower list | explains an empty list and offers to add the first borrower | ✓ |
-| WEB-20-003 | borrower list | searches by name after a short pause and goes back to the first page | ✓ |
-| WEB-20-004 | borrower list | pages through the list 20 at a time | ✓ |
-| WEB-20-005 | borrower list | a click on next right after the page opens is not undone by the search timer | ✓ |
-| WEB-20-006 | borrower list | shows the API's message on failure | ✓ |
-| WEB-20-007 | create borrower | creates the borrower and shows the temporary password once | ✓ |
-| WEB-20-008 | create borrower | requires every field and calls nothing while any is wrong | ✓ |
-| WEB-20-009 | create borrower | checks the password length of the account | ✓ |
-| WEB-20-010 | create borrower | the generator fills a password that passes the length check | ✓ |
-| WEB-20-011 | create borrower | shows 'username taken' from the API and keeps the form | ✓ |
-| WEB-20-012 | borrower detail | masks the account number until the admin chooses to show it | ✓ |
-| WEB-20-013 | borrower detail | edits only the fields that changed | ✓ |
-| WEB-20-014 | borrower detail | says nothing changed instead of sending an empty edit | ✓ |
-| WEB-20-015 | borrower detail | refuses an invalid phone number before calling the API | ✓ |
-| WEB-20-016 | borrower detail | deactivating needs a confirmation, then sends isActive=false | ✓ |
-| WEB-20-017 | borrower detail | a deactivated account can be activated again | ✓ |
-| WEB-20-018 | borrower detail | cancelling the deactivation sends nothing | ✓ |
-| WEB-20-019 | borrower detail | resets the password, shows the new one once and can hide it | ✓ |
-| WEB-20-020 | borrower detail | refuses a short new password without calling the API | ✓ |
-| WEB-20-021 | borrower detail | an imported borrower has no account: the account controls are not offered | ✓ |
-| WEB-20-022 | borrower detail | shows 'not found' from the API | ✓ |
-| WEB-20-023 | borrower detail | shows when the borrower accepted the PDPA terms | ✓ |
+| WEB-21-001 | borrower list | lists borrowers with the account number masked and the status in words | ✓ |
+| WEB-21-002 | borrower list | explains an empty list and offers to add the first borrower | ✓ |
+| WEB-21-003 | borrower list | searches by name after a short pause and goes back to the first page | ✓ |
+| WEB-21-004 | borrower list | pages through the list 20 at a time | ✓ |
+| WEB-21-005 | borrower list | a click on next right after the page opens is not undone by the search timer | ✓ |
+| WEB-21-006 | borrower list | shows the API's message on failure | ✓ |
+| WEB-21-007 | create borrower | creates the borrower and shows the temporary password once | ✓ |
+| WEB-21-008 | create borrower | needs only the name and the login, and calls nothing while those are missing | ✓ |
+| WEB-21-009 | create borrower | creates the account with just the name: phone, bank and account number are the borrower's to fill in (CR-5) | ✓ |
+| WEB-21-010 | create borrower | still checks a phone or account number the admin does type, and sends only what was typed | ✓ |
+| WEB-21-011 | create borrower | checks the password length of the account | ✓ |
+| WEB-21-012 | create borrower | the generator fills a password that passes the length check | ✓ |
+| WEB-21-013 | create borrower | shows 'username taken' from the API and keeps the form | ✓ |
+| WEB-21-014 | borrower detail | masks the account number until the admin chooses to show it | ✓ |
+| WEB-21-015 | borrower detail | edits only the fields that changed | ✓ |
+| WEB-21-016 | borrower detail | says nothing changed instead of sending an empty edit | ✓ |
+| WEB-21-017 | borrower detail | refuses an invalid phone number before calling the API | ✓ |
+| WEB-21-018 | borrower detail | deactivating needs a confirmation, then sends isActive=false | ✓ |
+| WEB-21-019 | borrower detail | a deactivated account can be activated again | ✓ |
+| WEB-21-020 | borrower detail | cancelling the deactivation sends nothing | ✓ |
+| WEB-21-021 | borrower detail | resets the password, shows the new one once and can hide it | ✓ |
+| WEB-21-022 | borrower detail | refuses a short new password without calling the API | ✓ |
+| WEB-21-023 | borrower detail | an imported borrower has no account: the account controls are not offered | ✓ |
+| WEB-21-024 | borrower detail | shows 'not found' from the API | ✓ |
+| WEB-21-025 | borrower detail | shows when the borrower accepted the PDPA terms | ✓ |
 
-#### WEB-21 · `admin-contracts.test.tsx` — หน้ารายการสัญญา
+#### WEB-22 · `admin-contracts.test.tsx` — หน้ารายการสัญญา
 
 อ้างอิง: F4
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-21-001 | contract list | shows each contract with its status, due date and what is owed | ✓ |
-| WEB-21-002 | contract list | says so when nothing matches | ✓ |
-| WEB-21-003 | contract list | passes the filters to the API | ✓ |
-| WEB-21-004 | contract list | returns to the first page whenever the filter changes | ✓ |
-| WEB-21-005 | contract list | a click on next right after the page opens is not undone by the search timer | ✓ |
-| WEB-21-006 | contract list | shows the API's message on failure | ✓ |
+| WEB-22-001 | contract list | shows each contract with its status, due date and what is owed | ✓ |
+| WEB-22-002 | contract list | says so when nothing matches | ✓ |
+| WEB-22-003 | contract list | passes the filters to the API | ✓ |
+| WEB-22-004 | contract list | returns to the first page whenever the filter changes | ✓ |
+| WEB-22-005 | contract list | a click on next right after the page opens is not undone by the search timer | ✓ |
+| WEB-22-006 | contract list | shows the API's message on failure | ✓ |
 
-#### WEB-22 · `admin-ledger.test.tsx` — หน้าสัญญา: จ่ายเงิน รับชำระ แก้/ลบ
+#### WEB-23 · `admin-ledger.test.tsx` — หน้าสัญญา: จ่ายเงิน รับชำระ แก้/ลบ
 
 อ้างอิง: F4 · F5 · DES-016
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-22-001 | contract waiting for the payout | shows no amount owed before the payout | ✓ |
-| WEB-22-002 | contract waiting for the payout | warns when the rates are not set (a payout is impossible) | ✓ |
-| WEB-22-003 | contract waiting for the payout | will not record a payout without a slip | ✓ |
-| WEB-22-004 | contract waiting for the payout | uploads the slip, then records the payout with its key (the amount is never sent) | ✓ |
-| WEB-22-005 | contract waiting for the payout | refuses a payout date in the future | ✓ |
-| WEB-22-006 | contract waiting for the payout | refuses a payout on or after the due date (interest needs at least one day) | ✓ |
-| WEB-22-007 | contract waiting for the payout | shows the API's refusal (rates not set) and keeps the slip | ✓ |
-| WEB-22-008 | contract waiting for the payout | does not upload a file that is not a JPEG or PNG | ✓ |
-| WEB-22-009 | contract waiting for the payout | does not upload a file over 5 MB | ✓ |
-| WEB-22-010 | contract waiting for the payout | shows the server's message when the upload fails and keeps the payout blocked | ✓ |
-| WEB-22-011 | contract waiting for the payout | choosing another file clears the previous slip | ✓ |
-| WEB-22-012 | contract waiting for the payout | cancelling the contract needs a confirmation and may carry a reason | ✓ |
-| WEB-22-013 | contract waiting for the payout | shows the API's refusal when the contract can no longer be cancelled | ✓ |
-| WEB-22-014 | active contract: payments | shows what is owed, how it is made up and the locked rates | ✓ |
-| WEB-22-015 | active contract: payments | uses the owner's wording: จ่ายเพื่อลดยอดรวมที่ติด | ✓ |
-| WEB-22-016 | active contract: payments | the full-payment button fills in what is owed today, as text | ✓ |
-| WEB-22-017 | active contract: payments | offers the full-payment shortcut only for today's date | ✓ |
-| WEB-22-018 | active contract: payments | records a payment and tells how it was settled (late fee, interest, principal) | ✓ |
-| WEB-22-019 | active contract: payments | says the contract is closed when the last payment settles it | ✓ |
-| WEB-22-020 | active contract: payments | refuses an invalid amount or date before calling the API | ✓ |
-| WEB-22-021 | active contract: payments | shows the API's refusal when the payment is more than is owed | ✓ |
-| WEB-22-022 | active contract: payments | a closed contract offers no payment form | ✓ |
-| WEB-22-023 | active contract: payments | shows overdue days, the daily late-fee table, the imported flag and an inconsistency warning | ✓ |
-| WEB-22-024 | active contract: payments | shows the API's message when the contract is not found | ✓ |
-| WEB-22-025 | editing and deleting recorded payments | shows the recorded payments with how each was settled | ✓ |
-| WEB-22-026 | editing and deleting recorded payments | warns what an edit does to the contract, reports and sent notifications, and sends only the change | ✓ |
-| WEB-22-027 | editing and deleting recorded payments | an amount typed as 300 or 300.0 is not a change from 300.00 | ✓ |
-| WEB-22-028 | editing and deleting recorded payments | emptying the note sends null (clears it) | ✓ |
-| WEB-22-029 | editing and deleting recorded payments | shows the API's refusal when an edit would make the history invalid | ✓ |
-| WEB-22-030 | editing and deleting recorded payments | deleting a payment shows the warning, needs a confirmation, then deletes | ✓ |
-| WEB-22-031 | editing and deleting recorded payments | backing out of an edit or a delete sends nothing | ✓ |
-| WEB-22-032 | the payout record | keeps the slip hidden until asked, then shows it from the API with the session cookie | ✓ |
-| WEB-22-033 | the payout record | edits only the changed fields and warns about the recalculation | ✓ |
-| WEB-22-034 | the payout record | can replace the slip | ✓ |
-| WEB-22-035 | the payout record | an edit with nothing changed is not sent | ✓ |
-| WEB-22-036 | the payout record | deleting the payout explains it and needs a confirmation | ✓ |
-| WEB-22-037 | the payout record | shows the API's refusal when payments still exist | ✓ |
-| WEB-22-038 | the payout record | an imported contract has no payout record to show | ✓ |
+| WEB-23-001 | contract waiting for the payout | shows no amount owed before the payout | ✓ |
+| WEB-23-002 | contract waiting for the payout | warns when the rates are not set (a payout is impossible) | ✓ |
+| WEB-23-003 | contract waiting for the payout | will not record a payout without a slip | ✓ |
+| WEB-23-004 | contract waiting for the payout | uploads the slip, then records the payout with its key (the amount is never sent) | ✓ |
+| WEB-23-005 | contract waiting for the payout | refuses a payout date in the future | ✓ |
+| WEB-23-006 | contract waiting for the payout | refuses a payout on or after the due date (interest needs at least one day) | ✓ |
+| WEB-23-007 | contract waiting for the payout | shows the API's refusal (rates not set) and keeps the slip | ✓ |
+| WEB-23-008 | contract waiting for the payout | does not upload a file that is not a JPEG or PNG | ✓ |
+| WEB-23-009 | contract waiting for the payout | does not upload a file over 5 MB | ✓ |
+| WEB-23-010 | contract waiting for the payout | shows the server's message when the upload fails and keeps the payout blocked | ✓ |
+| WEB-23-011 | contract waiting for the payout | choosing another file clears the previous slip | ✓ |
+| WEB-23-012 | contract waiting for the payout | cancelling the contract needs a confirmation and may carry a reason | ✓ |
+| WEB-23-013 | contract waiting for the payout | shows the API's refusal when the contract can no longer be cancelled | ✓ |
+| WEB-23-014 | active contract: payments | shows what is owed, how it is made up and the locked rates | ✓ |
+| WEB-23-015 | active contract: payments | uses the owner's wording: จ่ายเพื่อลดยอดรวมที่ติด | ✓ |
+| WEB-23-016 | active contract: payments | the full-payment button fills in what is owed today, as text | ✓ |
+| WEB-23-017 | active contract: payments | offers the full-payment shortcut only for today's date | ✓ |
+| WEB-23-018 | active contract: payments | records a payment and tells how it was settled (late fee, interest, principal) | ✓ |
+| WEB-23-019 | active contract: payments | says the contract is closed when the last payment settles it | ✓ |
+| WEB-23-020 | active contract: payments | refuses an invalid amount or date before calling the API | ✓ |
+| WEB-23-021 | active contract: payments | shows the API's refusal when the payment is more than is owed | ✓ |
+| WEB-23-022 | active contract: payments | a closed contract offers no payment form | ✓ |
+| WEB-23-023 | active contract: payments | shows overdue days, the daily late-fee table, the imported flag and an inconsistency warning | ✓ |
+| WEB-23-024 | active contract: payments | shows the API's message when the contract is not found | ✓ |
+| WEB-23-025 | editing and deleting recorded payments | shows the recorded payments with how each was settled | ✓ |
+| WEB-23-026 | editing and deleting recorded payments | warns what an edit does to the contract, reports and sent notifications, and sends only the change | ✓ |
+| WEB-23-027 | editing and deleting recorded payments | an amount typed as 300 or 300.0 is not a change from 300.00 | ✓ |
+| WEB-23-028 | editing and deleting recorded payments | emptying the note sends null (clears it) | ✓ |
+| WEB-23-029 | editing and deleting recorded payments | shows the API's refusal when an edit would make the history invalid | ✓ |
+| WEB-23-030 | editing and deleting recorded payments | deleting a payment shows the warning, needs a confirmation, then deletes | ✓ |
+| WEB-23-031 | editing and deleting recorded payments | backing out of an edit or a delete sends nothing | ✓ |
+| WEB-23-032 | the payout record | keeps the slip hidden until asked, then shows it from the API with the session cookie | ✓ |
+| WEB-23-033 | the payout record | edits only the changed fields and warns about the recalculation | ✓ |
+| WEB-23-034 | the payout record | can replace the slip | ✓ |
+| WEB-23-035 | the payout record | an edit with nothing changed is not sent | ✓ |
+| WEB-23-036 | the payout record | deleting the payout explains it and needs a confirmation | ✓ |
+| WEB-23-037 | the payout record | shows the API's refusal when payments still exist | ✓ |
+| WEB-23-038 | the payout record | an imported contract has no payout record to show | ✓ |
 
-#### WEB-23 · `admin-requests.test.tsx` — หน้าคำขอยืม
+#### WEB-24 · `admin-requests.test.tsx` — หน้าคำขอยืม
 
 อ้างอิง: F3
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-23-001 | request inbox | opens on the requests waiting for a decision | ✓ |
-| WEB-23-002 | request inbox | says so when nothing is waiting | ✓ |
-| WEB-23-003 | request inbox | switches the filter and asks the API for that status (or all) | ✓ |
-| WEB-23-004 | request inbox | approving needs a confirmation and then creates the contract | ✓ |
-| WEB-23-005 | request inbox | rejecting needs a reason and sends it | ✓ |
-| WEB-23-006 | request inbox | a whitespace-only reason does not count | ✓ |
-| WEB-23-007 | request inbox | cancelling a request also needs a confirmation | ✓ |
-| WEB-23-008 | request inbox | backing out of a decision sends nothing | ✓ |
-| WEB-23-009 | request inbox | shows the API's refusal when the request is no longer pending | ✓ |
-| WEB-23-010 | request inbox | decided requests have no decision buttons, but show the reason and the contract link | ✓ |
-| WEB-23-011 | request inbox | pages through the inbox 20 at a time | ✓ |
-| WEB-23-012 | create a request for a borrower | needs a borrower, an amount and a future due date | ✓ |
-| WEB-23-013 | create a request for a borrower | creates the request for the chosen borrower | ✓ |
-| WEB-23-014 | create a request for a borrower | can approve straight away | ✓ |
-| WEB-23-015 | create a request for a borrower | if approving fails the request still exists and the page says so | ✓ |
-| WEB-23-016 | create a request for a borrower | shows the API's refusal and keeps the form | ✓ |
-| WEB-23-017 | create a request for a borrower | refuses today as the due date | ✓ |
+| WEB-24-001 | request inbox | opens on the requests waiting for a decision | ✓ |
+| WEB-24-002 | request inbox | says so when nothing is waiting | ✓ |
+| WEB-24-003 | request inbox | switches the filter and asks the API for that status (or all) | ✓ |
+| WEB-24-004 | request inbox | approving needs a confirmation and then creates the contract | ✓ |
+| WEB-24-005 | request inbox | rejecting needs a reason and sends it | ✓ |
+| WEB-24-006 | request inbox | a whitespace-only reason does not count | ✓ |
+| WEB-24-007 | request inbox | cancelling a request also needs a confirmation | ✓ |
+| WEB-24-008 | request inbox | backing out of a decision sends nothing | ✓ |
+| WEB-24-009 | request inbox | shows the API's refusal when the request is no longer pending | ✓ |
+| WEB-24-010 | request inbox | decided requests have no decision buttons, but show the reason and the contract link | ✓ |
+| WEB-24-011 | request inbox | pages through the inbox 20 at a time | ✓ |
+| WEB-24-012 | create a request for a borrower | needs a borrower, an amount and a future due date | ✓ |
+| WEB-24-013 | create a request for a borrower | creates the request for the chosen borrower | ✓ |
+| WEB-24-014 | create a request for a borrower | can approve straight away | ✓ |
+| WEB-24-015 | create a request for a borrower | if approving fails the request still exists and the page says so | ✓ |
+| WEB-24-016 | create a request for a borrower | shows the API's refusal and keeps the form | ✓ |
+| WEB-24-017 | create a request for a borrower | refuses today as the due date | ✓ |
 
-#### WEB-24 · `admin-settings.test.tsx` — หน้าตั้งอัตรา
+#### WEB-25 · `admin-settings.test.tsx` — หน้าตั้งอัตรา
 
 อ้างอิง: F2
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-24-001 | settings page (rates) | warns that payouts and imports are impossible until both rates are set | ✓ |
-| WEB-24-002 | settings page (rates) | warns when only one of the two rates is set | ✓ |
-| WEB-24-003 | settings page (rates) | shows no warning once both are set, and who changed them last | ✓ |
-| WEB-24-004 | settings page (rates) | saves the first values without a confirm step, sending both as normalised strings | ✓ |
-| WEB-24-005 | settings page (rates) | rejects an invalid rate before calling the API | ✓ |
-| WEB-24-006 | settings page (rates) | does not call the API when nothing changed | ✓ |
-| WEB-24-007 | settings page (rates) | treats a re-typed identical number as no change | ✓ |
-| WEB-24-008 | settings page (rates) | asks for confirmation before replacing a rate that is in use, and sends only the changed field | ✓ |
-| WEB-24-009 | settings page (rates) | cancelling the confirm step sends nothing | ✓ |
-| WEB-24-010 | settings page (rates) | shows the API's message when saving fails | ✓ |
-| WEB-24-011 | settings page (rates) | explains that a change only affects contracts paid out afterwards | ✓ |
-| WEB-24-012 | admin dashboard | points to the settings page while rates are missing | ✓ |
+| WEB-25-001 | settings page (rates) | warns that payouts and imports are impossible until both rates are set | ✓ |
+| WEB-25-002 | settings page (rates) | warns when only one of the two rates is set | ✓ |
+| WEB-25-003 | settings page (rates) | shows no warning once both are set, and who changed them last | ✓ |
+| WEB-25-004 | settings page (rates) | saves the first values without a confirm step, sending both as normalised strings | ✓ |
+| WEB-25-005 | settings page (rates) | rejects an invalid rate before calling the API | ✓ |
+| WEB-25-006 | settings page (rates) | does not call the API when nothing changed | ✓ |
+| WEB-25-007 | settings page (rates) | treats a re-typed identical number as no change | ✓ |
+| WEB-25-008 | settings page (rates) | asks for confirmation before replacing a rate that is in use, and sends only the changed field | ✓ |
+| WEB-25-009 | settings page (rates) | cancelling the confirm step sends nothing | ✓ |
+| WEB-25-010 | settings page (rates) | shows the API's message when saving fails | ✓ |
+| WEB-25-011 | settings page (rates) | explains that a change only affects contracts paid out afterwards | ✓ |
+| WEB-25-012 | admin dashboard | points to the settings page while rates are missing | ✓ |
 
-#### WEB-25 · `calendar.test.tsx` — ปฏิทิน admin
+#### WEB-26 · `calendar.test.tsx` — ปฏิทิน admin
 
 อ้างอิง: F11 · DES-018
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-25-001 | calendar layout helpers | reads and writes months, and moves across year ends | ✓ |
-| WEB-25-002 | calendar layout helpers | knows how long a month is (including leap years) | ✓ |
-| WEB-25-003 | calendar layout helpers | starts the first day on the right weekday (weeks begin on Sunday) | ✓ |
-| WEB-25-004 | calendar layout helpers | writes months and days in Thai Buddhist Era | ✓ |
-| WEB-25-005 | calendar page | opens on the current month with today selected, asking the API for that month | ✓ |
-| WEB-25-006 | calendar page | puts what is due on its day and what was paid on its day, with a plain-words label for each cell | ✓ |
-| WEB-25-007 | calendar page | shows the contracts due on the chosen day with what is still owed, taken from the API as it is | ✓ |
-| WEB-25-008 | calendar page | opens another day when it is pressed, and flags a day that is overdue | ✓ |
-| WEB-25-009 | calendar page | colours a day red when something due is overdue, amber when open, green when settled | ✓ |
-| WEB-25-010 | calendar page | says so when the chosen day has nothing on it | ✓ |
-| WEB-25-011 | calendar page | moves to the next and previous month (also across the year), asking the API each time | ✓ |
-| WEB-25-012 | calendar page | another month starts with no day chosen, and 'back to this month' returns with today chosen | ✓ |
-| WEB-25-013 | calendar page | starts the first of the month on the right weekday column | ✓ |
-| WEB-25-014 | calendar page | warns when the month had too much to show, and shows the API's message on failure | ✓ |
+| WEB-26-001 | calendar layout helpers | reads and writes months, and moves across year ends | ✓ |
+| WEB-26-002 | calendar layout helpers | knows how long a month is (including leap years) | ✓ |
+| WEB-26-003 | calendar layout helpers | starts the first day on the right weekday (weeks begin on Sunday) | ✓ |
+| WEB-26-004 | calendar layout helpers | writes months and days in Thai Buddhist Era | ✓ |
+| WEB-26-005 | calendar page | opens on the current month with today selected, asking the API for that month | ✓ |
+| WEB-26-006 | calendar page | puts what is due on its day and what was paid on its day, with a plain-words label for each cell | ✓ |
+| WEB-26-007 | calendar page | shows the contracts due on the chosen day with what is still owed, taken from the API as it is | ✓ |
+| WEB-26-008 | calendar page | opens another day when it is pressed, and flags a day that is overdue | ✓ |
+| WEB-26-009 | calendar page | colours a day red when something due is overdue, amber when open, green when settled | ✓ |
+| WEB-26-010 | calendar page | says so when the chosen day has nothing on it | ✓ |
+| WEB-26-011 | calendar page | moves to the next and previous month (also across the year), asking the API each time | ✓ |
+| WEB-26-012 | calendar page | another month starts with no day chosen, and 'back to this month' returns with today chosen | ✓ |
+| WEB-26-013 | calendar page | starts the first of the month on the right weekday column | ✓ |
+| WEB-26-014 | calendar page | warns when the month had too much to show, and shows the API's message on failure | ✓ |
 
-#### WEB-26 · `limits.test.tsx` — lib/limits + ฟอร์มสลิป — ขนาดสลิปปรับตาม build
+#### WEB-27 · `limits.test.tsx` — lib/limits + ฟอร์มสลิป — ขนาดสลิปปรับตาม build
 
 อ้างอิง: DEPLOY-VERCEL · F5
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-26-001 | slipLimit | is 5 MB unless the build says otherwise | ✓ |
-| WEB-26-002 | slipLimit | follows NEXT_PUBLIC_SLIP_MAX_MB (4 on Vercel, where a request body may not exceed 4.5 MB) | ✓ |
-| WEB-26-003 | slipLimit | rounds down to whole MB: 4.7 -> 4 | ✓ |
-| WEB-26-004 | slipLimit | rounds down to whole MB: 1 -> 1 | ✓ |
-| WEB-26-005 | slipLimit | rounds down to whole MB: 50 -> 50 | ✓ |
-| WEB-26-006 | slipLimit | falls back to 5 MB for the unusable value "" | ✓ |
-| WEB-26-007 | slipLimit | falls back to 5 MB for the unusable value "abc" | ✓ |
-| WEB-26-008 | slipLimit | falls back to 5 MB for the unusable value "0" | ✓ |
-| WEB-26-009 | slipLimit | falls back to 5 MB for the unusable value "0.5" | ✓ |
-| WEB-26-010 | slipLimit | falls back to 5 MB for the unusable value "-3" | ✓ |
-| WEB-26-011 | slipLimit | falls back to 5 MB for the unusable value "51" | ✓ |
-| WEB-26-012 | slipLimit | falls back to 5 MB for the unusable value "1000" | ✓ |
-| WEB-26-013 | slipLimit | falls back to 5 MB for the unusable value "NaN" | ✓ |
-| WEB-26-014 | slipLimit | falls back to 5 MB for the unusable value "Infinity" | ✓ |
-| WEB-26-015 | the slip form uses the configured limit | says 5 MB by default | ✓ |
-| WEB-26-016 | the slip form uses the configured limit | says 4 MB and refuses a 4.5 MB picture when the build is set to 4 | ✓ |
+| WEB-27-001 | slipLimit | is 5 MB unless the build says otherwise | ✓ |
+| WEB-27-002 | slipLimit | follows NEXT_PUBLIC_SLIP_MAX_MB (4 on Vercel, where a request body may not exceed 4.5 MB) | ✓ |
+| WEB-27-003 | slipLimit | rounds down to whole MB: 4.7 -> 4 | ✓ |
+| WEB-27-004 | slipLimit | rounds down to whole MB: 1 -> 1 | ✓ |
+| WEB-27-005 | slipLimit | rounds down to whole MB: 50 -> 50 | ✓ |
+| WEB-27-006 | slipLimit | falls back to 5 MB for the unusable value "" | ✓ |
+| WEB-27-007 | slipLimit | falls back to 5 MB for the unusable value "abc" | ✓ |
+| WEB-27-008 | slipLimit | falls back to 5 MB for the unusable value "0" | ✓ |
+| WEB-27-009 | slipLimit | falls back to 5 MB for the unusable value "0.5" | ✓ |
+| WEB-27-010 | slipLimit | falls back to 5 MB for the unusable value "-3" | ✓ |
+| WEB-27-011 | slipLimit | falls back to 5 MB for the unusable value "51" | ✓ |
+| WEB-27-012 | slipLimit | falls back to 5 MB for the unusable value "1000" | ✓ |
+| WEB-27-013 | slipLimit | falls back to 5 MB for the unusable value "NaN" | ✓ |
+| WEB-27-014 | slipLimit | falls back to 5 MB for the unusable value "Infinity" | ✓ |
+| WEB-27-015 | the slip form uses the configured limit | says 5 MB by default | ✓ |
+| WEB-27-016 | the slip form uses the configured limit | says 4 MB and refuses a 4.5 MB picture when the build is set to 4 | ✓ |
 
-#### WEB-27 · `manifest.test.ts` — manifest.webmanifest + ไอคอน
+#### WEB-28 · `manifest.test.ts` — manifest.webmanifest + ไอคอน
 
 อ้างอิง: F7
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-27-001 | PWA manifest | declares an installable standalone Thai app that starts at / | ✓ |
-| WEB-27-002 | PWA manifest | has a 192, a 512 and a maskable icon, and every icon file exists at its stated size | ✓ |
-| WEB-27-003 | PWA manifest | has the iOS home-screen icon the layout links to | ✓ |
-| WEB-27-004 | PWA manifest | has an offline page in Thai | ✓ |
+| WEB-28-001 | PWA manifest | declares an installable standalone Thai app that starts at / | ✓ |
+| WEB-28-002 | PWA manifest | has a 192, a 512 and a maskable icon, and every icon file exists at its stated size | ✓ |
+| WEB-28-003 | PWA manifest | has the iOS home-screen icon the layout links to | ✓ |
+| WEB-28-004 | PWA manifest | has an offline page in Thai | ✓ |
 
-#### WEB-28 · `next-config.test.ts` — next.config — header ความปลอดภัย, proxy
+#### WEB-29 · `next-config.test.ts` — next.config — header ความปลอดภัย, proxy
 
 อ้างอิง: Security
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-28-001 | next.config | forwards /api/* to the API server side, so the browser stays on one origin | ✓ |
-| WEB-28-002 | next.config | sends the security headers on every page | ✓ |
-| WEB-28-003 | next.config | never lets the service worker file be cached | ✓ |
-| WEB-28-004 | next.config | sends the old new-request notification address to the page that exists | ✓ |
-| WEB-28-005 | next.config | does not advertise the framework | ✓ |
+| WEB-29-001 | next.config | forwards /api/* to the API server side, so the browser stays on one origin | ✓ |
+| WEB-29-002 | next.config | sends the security headers on every page | ✓ |
+| WEB-29-003 | next.config | never lets the service worker file be cached | ✓ |
+| WEB-29-004 | next.config | sends the old new-request notification address to the page that exists | ✓ |
+| WEB-29-005 | next.config | does not advertise the framework | ✓ |
 
-#### WEB-29 · `register-sw.test.tsx` — components/RegisterServiceWorker
-
-อ้างอิง: F7
-
-| รหัส | กลุ่ม | เคส | ผล |
-|---|---|---|---|
-| WEB-29-001 | RegisterServiceWorker | registers /sw.js for the whole site in a production build | ✓ |
-| WEB-29-002 | RegisterServiceWorker | does nothing in development (a service worker would only get in the way) | ✓ |
-| WEB-29-003 | RegisterServiceWorker | does nothing, and does not crash, in a browser without service workers | ✓ |
-| WEB-29-004 | RegisterServiceWorker | the app keeps working when registration is refused | ✓ |
-| WEB-29-005 | RegisterServiceWorker | renders nothing visible | ✓ |
-
-#### WEB-30 · `service-worker.test.ts` — public/sw.js — offline, push, notificationclick
+#### WEB-30 · `register-sw.test.tsx` — components/RegisterServiceWorker
 
 อ้างอิง: F7
 
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
-| WEB-30-001 | service worker | on install keeps only the offline page | ✓ |
-| WEB-30-002 | service worker | on activate removes other caches and takes control | ✓ |
-| WEB-30-003 | service worker | lets a page load through the network when online | ✓ |
-| WEB-30-004 | service worker | shows the offline page when a page cannot be loaded | ✓ |
-| WEB-30-005 | service worker | never touches API calls, even page-like ones | ✓ |
-| WEB-30-006 | service worker | never touches non-GET requests, assets or other origins | ✓ |
-| WEB-30-007 | service worker | stores nothing but the offline page | ✓ |
-| WEB-30-008 | service worker: Web Push | shows the notification the server sent, as plain text | ✓ |
-| WEB-30-009 | service worker: Web Push | always shows something, even when the payload is empty or unreadable (browsers demand it) | ✓ |
-| WEB-30-010 | service worker: Web Push | cuts an over-long title and body | ✓ |
-| WEB-30-011 | service worker: Web Push | a notification only ever points at a page of this site | ✓ |
-| WEB-30-012 | service worker: Web Push | clicking opens the page in a new window when the app is not open | ✓ |
-| WEB-30-013 | service worker: Web Push | clicking brings an open window of the app forward and goes to the page | ✓ |
-| WEB-30-014 | service worker: Web Push | clicking can never be turned into leaving the site | ✓ |
+| WEB-30-001 | RegisterServiceWorker | registers /sw.js for the whole site in a production build | ✓ |
+| WEB-30-002 | RegisterServiceWorker | does nothing in development (a service worker would only get in the way) | ✓ |
+| WEB-30-003 | RegisterServiceWorker | does nothing, and does not crash, in a browser without service workers | ✓ |
+| WEB-30-004 | RegisterServiceWorker | the app keeps working when registration is refused | ✓ |
+| WEB-30-005 | RegisterServiceWorker | renders nothing visible | ✓ |
+
+#### WEB-31 · `service-worker.test.ts` — public/sw.js — offline, push, notificationclick
+
+อ้างอิง: F7
+
+| รหัส | กลุ่ม | เคส | ผล |
+|---|---|---|---|
+| WEB-31-001 | service worker | on install keeps only the offline page | ✓ |
+| WEB-31-002 | service worker | on activate removes other caches and takes control | ✓ |
+| WEB-31-003 | service worker | lets a page load through the network when online | ✓ |
+| WEB-31-004 | service worker | shows the offline page when a page cannot be loaded | ✓ |
+| WEB-31-005 | service worker | never touches API calls, even page-like ones | ✓ |
+| WEB-31-006 | service worker | never touches non-GET requests, assets or other origins | ✓ |
+| WEB-31-007 | service worker | stores nothing but the offline page | ✓ |
+| WEB-31-008 | service worker: Web Push | shows the notification the server sent, as plain text | ✓ |
+| WEB-31-009 | service worker: Web Push | always shows something, even when the payload is empty or unreadable (browsers demand it) | ✓ |
+| WEB-31-010 | service worker: Web Push | cuts an over-long title and body | ✓ |
+| WEB-31-011 | service worker: Web Push | a notification only ever points at a page of this site | ✓ |
+| WEB-31-012 | service worker: Web Push | clicking opens the page in a new window when the app is not open | ✓ |
+| WEB-31-013 | service worker: Web Push | clicking brings an open window of the app forward and goes to the page | ✓ |
+| WEB-31-014 | service worker: Web Push | clicking can never be turned into leaving the site | ✓ |
 
 ## 5. ความครอบคลุมที่วัดได้
 

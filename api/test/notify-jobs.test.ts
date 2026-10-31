@@ -9,7 +9,7 @@ import { bangkokToday, formatDateOnly } from "../src/lib/dates.js";
 import { hashPassword } from "../src/lib/password.js";
 import { Notifier } from "../src/notifications/service.js";
 import type { ChannelAdapter, RenderedMessage } from "../src/notifications/types.js";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { completeProfile, RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
 
 const prisma = new PrismaClient();
 const dbUp = await prisma
@@ -80,7 +80,7 @@ describe.skipIf(!dbUp)("notification rounds and the new-request hook (PostgreSQL
     adminId = admin.id;
     const bu = await prisma.user.create({ data: { username: `${marker}-b`, passwordHash: await hashPassword(PASSWORD), role: "BORROWER", mustChangePassword: false } });
     borrowerUserId = bu.id;
-    borrowerId = (await prisma.borrower.create({ data: { userId: bu.id, fullName: `${marker} สมหญิง`, pdpaAcceptedAt: new Date() } })).id;
+    borrowerId = (await prisma.borrower.create({ data: { userId: bu.id, fullName: `${marker} สมหญิง`, ...completeProfile(), pdpaAcceptedAt: new Date() } })).id;
   });
 
   afterAll(async () => {

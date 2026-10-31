@@ -6,6 +6,7 @@ import type { AuthMiddleware } from "../auth/middleware.js";
 import { asyncHandler, sendError } from "../http.js";
 import { writeAuditLog } from "../lib/audit.js";
 import { FieldCipher } from "../lib/field-crypto.js";
+import { bankAccountNoField, bankNameField, phoneField } from "../lib/borrower-fields.js";
 import { hashPassword, passwordPolicyViolation } from "../lib/password.js";
 
 /**
@@ -18,19 +19,20 @@ const username = z
   .trim()
   .regex(/^\S{1,64}$/, "ชื่อผู้ใช้ต้องไม่มีช่องว่างและยาวไม่เกิน 64 ตัวอักษร");
 const fullName = z.string().trim().min(1).max(200);
-const phone = z.string().trim().regex(/^[0-9+\-() ]{6,30}$/, "เบอร์โทรศัพท์ไม่ถูกต้อง");
-const bankName = z.string().trim().min(1).max(100);
-const bankAccountNo = z.string().trim().regex(/^[0-9-]{6,30}$/, "เลขบัญชีไม่ถูกต้อง");
+const phone = phoneField;
+const bankName = bankNameField;
+const bankAccountNo = bankAccountNoField;
 const newPassword = z.string().min(1).max(1024);
 
 const createBody = z.object({
   username,
   password: newPassword,
-  // Required when created through the admin page (DES-001); only imported borrowers may lack them.
   fullName,
-  phone,
-  bankName,
-  bankAccountNo,
+  // Optional (CR-5): the admin creates the account with the name, and the borrower fills in the phone number
+  // and the bank account themself after the first login (PATCH /me/profile). The admin may still give them.
+  phone: phone.optional(),
+  bankName: bankName.optional(),
+  bankAccountNo: bankAccountNo.optional(),
 });
 
 const updateBody = z
@@ -141,9 +143,9 @@ export function createAdminBorrowersRouter(deps: {
             data: {
               userId: user.id,
               fullName: data.fullName,
-              phone: data.phone,
-              bankName: data.bankName,
-              bankAccountNo: cipher.encrypt(data.bankAccountNo),
+              phone: data.phone ?? null,
+              bankName: data.bankName ?? null,
+              bankAccountNo: data.bankAccountNo === undefined ? null : cipher.encrypt(data.bankAccountNo),
             },
             select: borrowerSelect,
           });

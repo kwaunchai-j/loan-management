@@ -6,6 +6,7 @@ import type { AuthMiddleware } from "../auth/middleware.js";
 import { forbidClientBorrowerId, sessionBorrowerId } from "../auth/borrower-scope.js";
 import { asyncHandler, DomainError, sendError } from "../http.js";
 import { formatDateOnly } from "../lib/dates.js";
+import { isProfileComplete } from "../lib/borrower-fields.js";
 import { dateOnly, idParam, moneyAmount } from "../lib/schemas.js";
 import { disbursementView, recordDisbursement } from "./disbursement.js";
 import { estimateInterest } from "./interest-estimate.js";
@@ -71,6 +72,14 @@ export function createBorrowerLoanRequestsRouter(deps: {
     asyncHandler(async (req, res) => {
       const body = createBody.safeParse(req.body);
       if (!body.success) return sendError(res, 400, "VALIDATION_ERROR", firstIssue(body.error));
+      // the lender must be able to reach the borrower and know where to send the money (CR-5)
+      const profile = await deps.prisma.borrower.findUnique({
+        where: { id: sessionBorrowerId(req) },
+        select: { phone: true, bankName: true, bankAccountNo: true },
+      });
+      if (!profile || !isProfileComplete(profile)) {
+        return sendError(res, 409, "PROFILE_INCOMPLETE", "กรุณากรอกเบอร์โทรศัพท์ ธนาคาร และเลขบัญชีของคุณที่เมนู \"ข้อมูลของฉัน\" ก่อนส่งคำขอยืมเงิน");
+      }
       const row = await createRequest(deps.prisma, {
         borrowerId: sessionBorrowerId(req),
         amount: body.data.amount,

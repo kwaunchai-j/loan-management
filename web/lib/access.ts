@@ -65,6 +65,7 @@ export function menuFor(role: SessionUser["role"]): NavItem[] {
     { href: "/me", label: "หน้าหลัก" },
     { href: "/me/request", label: "ขอยืมเงิน" },
     { href: "/me/contracts", label: "สัญญาของฉัน" },
+    { href: "/me/profile", label: "ข้อมูลของฉัน" },
   ];
 }
 

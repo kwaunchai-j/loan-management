@@ -295,7 +295,7 @@ model AuditLog {
 - `Setting` เป็นแถวเดียว (`id = 1`) และ `interestRatePctPerMonth`/`lateFeeRatePctPerDay` เป็น `null` จนกว่า admin จะตั้งค่า — ระบบต้องไม่จ่ายเงิน/สร้างสัญญาใช้ยอดคำนวณจนกว่าจะตั้งค่า (ผู้ใช้ไม่ให้ตัวเลขเริ่มต้น)
 - `Contract.interestRatePctPerMonth` และ `lateFeeRatePctPerDay` เป็น snapshot ณ วันบันทึกการจ่ายเงิน — สัญญาที่มีอยู่ใช้อัตราเดิมที่ล็อกไว้ (ยืนยันแล้ว); สัญญานำเข้าเก็บ `interestRatePctPerMonth` เป็น `null` และ snapshot เฉพาะอัตราค่าปรับ ณ วันนำเข้า
 - `Contract.interestAmount` เป็น `null` ตอน `AWAITING_DISBURSEMENT` เพื่อบังคับ "ยังไม่แสดงยอดชำระ" ที่ชั้นข้อมูล
-- `Borrower.userId` เป็น nullable เพราะผู้ยืมที่นำเข้าจากไฟล์มีเพียงชื่อ ยังไม่มีบัญชีล็อกอิน; `phone`/`bankName`/`bankAccountNo` เป็น nullable ด้วยเหตุเดียวกัน แต่การสร้างผู้ยืมผ่านหน้า admin ต้องบังคับกรอก (DES-001)
+- `Borrower.userId` เป็น nullable เพราะผู้ยืมที่นำเข้าจากไฟล์มีเพียงชื่อ ยังไม่มีบัญชีล็อกอิน; `phone`/`bankName`/`bankAccountNo` เป็น nullable ด้วยเหตุเดียวกัน และ **CR-5: admin สร้างบัญชีผู้ยืมด้วยชื่อ (+ชื่อผู้ใช้/รหัสผ่านชั่วคราว) เท่านั้น ผู้ยืมกรอกเบอร์โทร ธนาคาร และเลขบัญชีเองหลังเข้าสู่ระบบ (DES-021)** — Data Model ไม่เปลี่ยน (คอลัมน์เหล่านี้ nullable อยู่แล้ว)
 - `Disbursement.slipFileKey` เป็นฟิลด์บังคับ (ยืนยันแล้ว: ต้องแนบสลิปทุกครั้งที่บันทึกจ่ายเงิน); ไฟล์สลิปเก็บบนเซิร์ฟเวอร์ในประเทศไทย
 - เพิ่ม `AuditLog` เพราะระบบเงินต้องย้อนดูได้ว่าใครบันทึกอะไร (ไม่ได้ระบุใน requirement — เป็นส่วนเสริมของ design; ถ้าผู้ใช้ไม่ต้องการ ตัดทิ้งได้โดยไม่กระทบกฎอื่น)
 - การเปลี่ยนแปลง: ทุกโมเดลเป็นโมเดลใหม่ทั้งหมด (additive) ไม่มี breaking
@@ -397,6 +397,12 @@ model PaymentSubmission {
 - ผู้ยืม: `GET /me/payment-account` (ผู้ยืมที่ยอมรับ PDPA แล้ว) ตอบ `{configured, bankName, accountName, accountNo}`; ไม่แสดงข้อมูลอื่นของ `Setting`
 - หน้าเว็บ: ปุ่ม "ดูบัญชีที่ต้องโอนเงิน" เปิด modal ที่ `/me/request` และในฟอร์ม "แจ้งชำระเงิน" ของหน้าสัญญา (ขอข้อมูลจาก API ทุกครั้งที่เปิด จึงเห็นการเปลี่ยนแปลงทันที; ปุ่มคัดลอกเลขบัญชีคัดลอกเฉพาะตัวเลข); admin ตั้งที่หน้า "ตั้งค่าอัตรา" การเปลี่ยนหรือลบบัญชีที่ใช้อยู่ต้องกดยืนยันซ้ำ
 
+**DES-021 ผู้ยืมกรอกข้อมูลของตนเอง (CR-5; อ้าง F1, F3)**
+- admin: `POST /admin/borrowers` บังคับเฉพาะ `username`, `password`, `fullName`; `phone`, `bankName`, `bankAccountNo` ไม่บังคับ (ถ้าใส่มาก็ตรวจรูปแบบเหมือนเดิม และเลขบัญชียังเข้ารหัสในฐานข้อมูล); admin ยังแก้ข้อมูลเหล่านี้ได้ที่ `PATCH /admin/borrowers/:id`
+- ผู้ยืม: `GET /me/profile` ตอบเพิ่ม `profileComplete` (= มี `phone`, `bankName`, `bankAccountNo` ครบทั้งสาม); `PATCH /me/profile` แก้ได้เฉพาะ `phone`, `bankName`, `bankAccountNo` (ส่งบางช่องได้ แต่ต้องมีอย่างน้อยหนึ่งช่อง) — **ชื่อและบัญชีล็อกอินเป็นของ admin เท่านั้น** (ฟิลด์อื่นใน body ถูกละเลย); ระบุ `borrowerId` ใน body ถูกปฏิเสธเหมือนทุก endpoint ฝั่งผู้ยืม; เขียน AuditLog `borrower.selfUpdate` (ผู้กระทำคือผู้ยืม, ระบุ `changedFields`, เลขบัญชีถูก mask)
+- **เงื่อนไขก่อนขอยืม:** `POST /loan-requests` (ผู้ยืมส่งเอง) ตอบ 409 `PROFILE_INCOMPLETE` ถ้า `profileComplete = false` เพราะผู้ให้กู้ต้องติดต่อผู้ยืมได้และรู้ว่าต้องโอนเงินเข้าบัญชีไหน; เส้นทางที่ admin ส่งแทนผู้ยืม (`/admin/loan-requests`) และการประมาณดอกเบี้ย (DES-019) ไม่ถูกกั้น
+- หน้าเว็บ: เมนูผู้ยืม "ข้อมูลของฉัน" (`/me/profile`); หน้าหลักผู้ยืมเตือนจนกว่าจะกรอกครบ; หน้าขอยืมปิดปุ่มส่งและบอกเหตุผลพร้อมลิงก์; ฟอร์มสร้างผู้ยืมของ admin บอกว่าผู้ยืมจะกรอกเอง
+
 ## Notification Rules
 
 **DES-013 (อ้าง F7)** ผู้รับคือ `ADMIN` เพียงคนเดียว ผ่าน LINE (Messaging API push ไปที่ `User.lineUserId`) และ Web Push (`PushSubscription`) ทั้งสองช่องทาง; ผู้ยืมไม่ได้รับแจ้งเตือนใดๆ
@@ -484,3 +490,4 @@ model PaymentSubmission {
 | 2026-10-31 | change request CR-3 ตามที่ผู้ใช้สั่ง "ผู้ยืมเช็คดูดอกเบี้ยได้ด้วยการกรอกยอดที่ต้องการยืมที่หน้าขอยืม": เพิ่ม DES-019 endpoint ประมาณดอกเบี้ย (ใช้สูตร DES-010 เดิม ไม่บันทึกข้อมูล) และกล่องประมาณการที่หน้า /me/request; Data Model ไม่เปลี่ยน | system-analyst |
 | 2026-10-31 | ปรับให้ deploy บน Vercel แยก FE/BE ตามที่ผู้ใช้สั่ง (ไม่ใช่ฟีเจอร์ใหม่ ไม่เปลี่ยน Data Model): เพิ่ม `STORAGE_BACKEND=blob` (สลิป/ไฟล์นำเข้าใน Vercel Blob แบบ private ผ่าน interface `SlipStorage`/`ImportStorage` เดิม), เส้นทาง `/cron/*` ป้องกันด้วย `CRON_SECRET` ให้ Vercel Cron เรียกงานกลางคืนแทน scheduler ในโปรเซส, entry `src/vercel.ts`, ขนาดสลิปปรับได้ (4 MB บน Vercel เพราะ request body จำกัด 4.5 MB); การจำกัดการเดารหัสผ่านบน serverless ใช้ Vercel Firewall ตามที่ผู้ใช้เลือก (ตัวจำกัดในหน่วยความจำคงเดิมสำหรับ Docker); ดู `DEPLOY-VERCEL.md` | system-analyst |
 | 2026-10-31 | change request CR-4 ตามที่ผู้ใช้สั่งและยืนยัน (เพิ่มช่องในหน้าตั้งค่า; modal ที่หน้าขอยืมและฟอร์มแจ้งชำระ): **แก้ Data Model 1 จุด — `Setting` เพิ่มคอลัมน์ nullable `paymentBankName`, `paymentAccountName`, `paymentAccountNo` (additive, migration `20261030204608_setting_payment_account`)** และเพิ่ม DES-020 | system-analyst |
+| 2026-10-31 | change request CR-5 ตามที่ผู้ใช้สั่ง "admin เป็นคนเพิ่ม user ให้แค่ผู้ใช้ต้องมาใส่ข้อมูลเบอร์ เลขบัญชีเอง": แก้ DES-001 (admin สร้างบัญชีด้วยชื่ออย่างเดียว), เพิ่ม DES-021 (ผู้ยืมกรอกเบอร์/ธนาคาร/เลขบัญชีเองที่ `PATCH /me/profile`, ต้องครบก่อนขอยืม); **Data Model ไม่เปลี่ยน** | system-analyst |

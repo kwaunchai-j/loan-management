@@ -6,7 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import { buildApp } from "../src/app.js";
 import { bangkokToday, formatDateOnly } from "../src/lib/dates.js";
 import { hashPassword } from "../src/lib/password.js";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { completeProfile, RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
 
 const prisma = new PrismaClient();
 const dbUp = await prisma
@@ -71,7 +71,7 @@ describe.skipIf(!dbUp)("loan requests and contracts (PostgreSQL)", () => {
     for (const [key, pdpa] of [["A", true], ["B", true], ["C", false]] as const) {
       const user = await mkUser(`borrower${key}`, "BORROWER");
       const b = await prisma.borrower.create({
-        data: { userId: user.id, fullName: `${marker} ${key}`, ...(pdpa ? { pdpaAcceptedAt: new Date() } : {}) },
+        data: { userId: user.id, fullName: `${marker} ${key}`, ...completeProfile(), ...(pdpa ? { pdpaAcceptedAt: new Date() } : {}) },
       });
       ids[`borrower${key}`] = b.id;
     }

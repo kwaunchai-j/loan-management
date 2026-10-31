@@ -199,6 +199,11 @@
       "ผู้ยืมแจ้งชำระ + ปฏิทิน",
       "F5 · DES-020",
       "admin/payment-account + /me/payment-account — บัญชีรับโอนของผู้ให้กู้"
+    ],
+    "borrower-profile.test.ts": [
+      "ผู้ใช้และสิทธิ์",
+      "F1 · F3 · DES-021",
+      "borrower/portal PATCH /me/profile + กั้นการขอยืม — ผู้ยืมกรอกเบอร์/เลขบัญชีเอง"
     ]
   },
   "web": {
@@ -351,6 +356,11 @@
       "คอมโพเนนต์กลาง",
       "A11y",
       "components/Modal — dialog, Escape, focus trap, scroll lock"
+    ],
+    "borrower-profile.test.tsx": [
+      "พอร์ทัลผู้ยืม",
+      "F1 · F3 · DES-021",
+      "หน้า \"ข้อมูลของฉัน\", ข้อความเตือนหน้าหลัก, ปิดปุ่มส่งคำขอจนกว่าจะกรอกครบ"
     ]
   }
 }

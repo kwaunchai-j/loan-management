@@ -88,7 +88,7 @@ describe("menuFor", () => {
 
   it("shows a borrower no admin page", () => {
     const hrefs = menuFor("BORROWER").map((m) => m.href);
-    expect(hrefs).toEqual(["/me", "/me/request", "/me/contracts"]);
+    expect(hrefs).toEqual(["/me", "/me/request", "/me/contracts", "/me/profile"]);
     expect(hrefs.some((h) => h.startsWith("/admin"))).toBe(false);
   });
 

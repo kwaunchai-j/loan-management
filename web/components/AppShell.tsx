@@ -22,6 +22,7 @@ const MENU_ICON: Record<string, IconName> = {
   "/me": "home",
   "/me/request": "plus",
   "/me/contracts": "document",
+  "/me/profile": "users",
 };
 
 /** The brand mark: a rounded square with the baht sign. */

@@ -128,12 +128,46 @@ describe("create borrower", () => {
     expect(document.querySelector('a[href="/admin/borrowers/b1"]')).not.toBeNull();
   });
 
-  it("requires every field and calls nothing while any is wrong", async () => {
+  it("needs only the name and the login, and calls nothing while those are missing", async () => {
     const calls = mockApi({});
     render(<NewBorrowerPage />);
     await userEvent.setup().click(screen.getByRole("button", { name: "สร้างบัญชีผู้ยืม" }));
-    expect((await screen.findAllByRole("alert")).length).toBeGreaterThanOrEqual(4);
+    expect(await screen.findByText("กรุณากรอกชื่อ-นามสกุล")).toBeInTheDocument();
+    // the optional boxes are not complained about
+    expect(screen.queryByText(/เบอร์โทรศัพท์ไม่ถูกต้อง/)).not.toBeInTheDocument();
+    expect(screen.queryByText("กรุณากรอกชื่อธนาคาร")).not.toBeInTheDocument();
     expect(calls).toHaveLength(0);
+  });
+
+  it("creates the account with just the name: phone, bank and account number are the borrower's to fill in (CR-5)", async () => {
+    const calls = mockApi({ "POST /admin/borrowers": { status: 201, body: { ...somchai, phone: null, bankName: null, bankAccountNo: null } } });
+    render(<NewBorrowerPage />);
+    expect(screen.getByText(/ผู้ยืมจะกรอกเอง/)).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("ชื่อ-นามสกุล"), "สมชาย ใจดี");
+    await user.type(screen.getByLabelText("ชื่อผู้ใช้"), "somchai");
+    await user.type(screen.getByLabelText("รหัสผ่านชั่วคราว"), "temp-pass-12345");
+    await user.click(screen.getByRole("button", { name: "สร้างบัญชีผู้ยืม" }));
+    expect(await screen.findByText("สร้างผู้ยืมแล้ว")).toBeInTheDocument();
+    expect(calls[0]!.body).toEqual({ fullName: "สมชาย ใจดี", username: "somchai", password: "temp-pass-12345" }); // nothing empty is sent
+  });
+
+  it("still checks a phone or account number the admin does type, and sends only what was typed", async () => {
+    const calls = mockApi({ "POST /admin/borrowers": { status: 201, body: somchai } });
+    render(<NewBorrowerPage />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("ชื่อ-นามสกุล"), "สมชาย ใจดี");
+    await user.type(screen.getByLabelText("เบอร์โทรศัพท์"), "abc");
+    await user.type(screen.getByLabelText("ชื่อผู้ใช้"), "somchai");
+    await user.type(screen.getByLabelText("รหัสผ่านชั่วคราว"), "temp-pass-12345");
+    await user.click(screen.getByRole("button", { name: "สร้างบัญชีผู้ยืม" }));
+    expect(await screen.findByText(/เบอร์โทรศัพท์ไม่ถูกต้อง/)).toBeInTheDocument();
+    expect(calls).toHaveLength(0);
+    await user.clear(screen.getByLabelText("เบอร์โทรศัพท์"));
+    await user.type(screen.getByLabelText("เบอร์โทรศัพท์"), "0812345678");
+    await user.click(screen.getByRole("button", { name: "สร้างบัญชีผู้ยืม" }));
+    await screen.findByText("สร้างผู้ยืมแล้ว");
+    expect(calls[0]!.body).toEqual({ fullName: "สมชาย ใจดี", phone: "0812345678", username: "somchai", password: "temp-pass-12345" });
   });
 
   it("checks the password length of the account", async () => {

@@ -183,13 +183,36 @@ describe.skipIf(!dbUp)("admin borrower management (PostgreSQL)", () => {
       expect(JSON.stringify(rows[0]!.detail)).not.toMatch(/initial-password|passwordHash|scrypt/);
     });
 
-    it("requires every field the admin page must collect", async () => {
-      for (const field of ["username", "password", "fullName", "phone", "bankName", "bankAccountNo"]) {
+    it("requires only the login and the name: the borrower fills in phone and account number themself (CR-5)", async () => {
+      for (const field of ["username", "password", "fullName"]) {
         const body: Record<string, unknown> = profile(`missing-${field}`);
         delete body[field];
         expect((await call("POST", "/admin/borrowers", body)).status, field).toBe(400);
       }
       expect(await prisma.user.count({ where: { username: { startsWith: name("missing-") } } })).toBe(0);
+    });
+
+    it("creates the account with the name alone, leaving phone, bank and account number empty", async () => {
+      const body: Record<string, unknown> = profile("nameonly");
+      for (const f of ["phone", "bankName", "bankAccountNo"]) delete body[f];
+      const res = await call("POST", "/admin/borrowers", body);
+      expect(res.status).toBe(201);
+      const created = await res.json();
+      expect(created).toMatchObject({ phone: null, bankName: null, bankAccountNo: null, account: { username: name("nameonly"), mustChangePassword: true } });
+      const row = await prisma.borrower.findUniqueOrThrow({ where: { id: created.id } });
+      expect([row.phone, row.bankName, row.bankAccountNo]).toEqual([null, null, null]);
+    });
+
+    it("still accepts them when the admin does give them (the account number stored encrypted), and still checks what is given", async () => {
+      const ok = await call("POST", "/admin/borrowers", profile("withall"));
+      expect(ok.status).toBe(201);
+      const row = await prisma.borrower.findUniqueOrThrow({ where: { id: (await ok.json()).id } });
+      expect(row.bankAccountNo).not.toBeNull();
+      expect(row.bankAccountNo).toMatch(/^enc:v1:/); // encrypted, not the typed number
+      expect(row.bankAccountNo).not.toContain("56789");
+      for (const bad of [{ phone: "abc" }, { bankAccountNo: "12ab" }, { bankName: "" }, { phone: "" }]) {
+        expect((await call("POST", "/admin/borrowers", profile(`bad${Object.keys(bad)[0]}${Math.random()}`.replace(".", ""), bad))).status, JSON.stringify(bad)).toBe(400);
+      }
     });
 
     it("rejects weak passwords and malformed phone, account number and username", async () => {

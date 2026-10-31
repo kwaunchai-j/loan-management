@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { LoginRateLimitOptions } from "../src/auth/routes.js";
+import { FieldCipher } from "../src/lib/field-crypto.js";
 import { LocalDiskSlipStorage } from "../src/lib/slip-storage.js";
 import { LocalDiskImportStorage } from "../src/imports/storage.js";
 import { TEST_IMPORT_DIR, TEST_SLIP_DIR } from "./slip-dir.js";
@@ -20,3 +21,13 @@ export const TEST_SLIP_STORAGE = new LocalDiskSlipStorage(TEST_SLIP_DIR);
 
 /** Import files staged by tests live in a shared temp folder emptied by test/global-setup.ts. */
 export const TEST_IMPORT_STORAGE = new LocalDiskImportStorage(TEST_IMPORT_DIR);
+
+/**
+ * The phone, bank and (encrypted) account number a borrower must have filled in before they can ask for a loan
+ * (CR-5). Spread into `prisma.borrower.create({ data: { ..., ...completeProfile() } })` in tests that file requests.
+ */
+export const completeProfile = () => ({
+  phone: "081-234-5678",
+  bankName: "ธนาคารทดสอบ",
+  bankAccountNo: new FieldCipher(TEST_FIELD_KEY).encrypt("123-4-56789-0"),
+});

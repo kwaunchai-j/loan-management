@@ -9,7 +9,7 @@ import { bangkokToday, formatDateOnly } from "../src/lib/dates.js";
 import { computeInterest } from "../src/lib/interest.js";
 import { hashPassword } from "../src/lib/password.js";
 import { estimateInterest } from "../src/loans/interest-estimate.js";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { completeProfile, RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
 
 // ---------------------------------------------------------------------------------------------
 // the calculation, with no database: a stand-in that only knows how to read the Setting row, so any
@@ -165,7 +165,7 @@ describe.skipIf(!dbUp)("GET /loan-requests/interest-estimate (PostgreSQL)", () =
       const user = await prisma.user.create({ data: { username: `${marker}-${u}`, role, passwordHash, mustChangePassword: false } });
       userIds.push(user.id);
       if (role === "BORROWER") {
-        const b = await prisma.borrower.create({ data: { userId: user.id, fullName: `${marker} ${u}`, pdpaAcceptedAt: u === "nopdpa" ? null : new Date() } });
+        const b = await prisma.borrower.create({ data: { userId: user.id, fullName: `${marker} ${u}`, ...completeProfile(), pdpaAcceptedAt: u === "nopdpa" ? null : new Date() } });
         borrowerIds.push(b.id);
       }
     }

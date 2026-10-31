@@ -19,7 +19,11 @@ export interface BorrowerFields {
 
 type Errors = Partial<Record<keyof BorrowerFields, string>>;
 
-/** Why a field is wrong, or nothing. A field left empty is only a mistake when `required`. */
+/**
+ * Why a field is wrong, or nothing. When `required` (creating a borrower) only the name must be given: the borrower
+ * fills in the phone number and the account number themself later (CR-5); what is typed is still checked.
+ * When editing, an empty field is simply left alone.
+ */
 function validate(values: BorrowerFields, required: boolean): Errors {
   const out: Errors = {};
   const rules: Array<[keyof BorrowerFields, (v: string) => string | null]> = [
@@ -29,7 +33,7 @@ function validate(values: BorrowerFields, required: boolean): Errors {
     ["bankAccountNo", checkBankAccount],
   ];
   for (const [field, rule] of rules) {
-    if (!required && values[field].trim() === "") continue;
+    if (values[field].trim() === "" && !(required && field === "fullName")) continue;
     const problem = rule(values[field]);
     if (problem) out[field] = problem;
   }
@@ -37,7 +41,7 @@ function validate(values: BorrowerFields, required: boolean): Errors {
 }
 
 /**
- * The borrower's own details (name, phone, bank, account number). The same form creates (all four
+ * The borrower's own details (name, phone, bank, account number). The same form creates (only the name
  * required) and edits (only fields that were changed are sent; an empty one that was already empty is
  * left alone). `onSubmit` receives only what should be sent.
  */
@@ -76,8 +80,8 @@ export function BorrowerForm({
     const send: Partial<BorrowerFields> = {};
     for (const k of Object.keys(values) as Array<keyof BorrowerFields>) {
       const v = values[k].trim();
-      // when creating, everything is sent; when editing, only what actually changed
-      if (required || (v !== "" && v !== initial[k].trim())) send[k] = v;
+      // when creating, the name and whatever else was typed are sent; when editing, only what actually changed
+      if (required ? k === "fullName" || v !== "" : v !== "" && v !== initial[k].trim()) send[k] = v;
     }
     if (!required && Object.keys(send).length === 0) {
       setApiError("ไม่มีการเปลี่ยนแปลง");
@@ -97,15 +101,29 @@ export function BorrowerForm({
     <form onSubmit={(e) => void submit(e)} className="space-y-4" noValidate>
       {apiError && <Alert kind="error">{apiError}</Alert>}
       <TextField label="ชื่อ-นามสกุล" autoComplete="off" value={values.fullName} error={errors.fullName} onChange={set("fullName")} />
-      <TextField label="เบอร์โทรศัพท์" type="tel" inputMode="tel" autoComplete="off" value={values.phone} error={errors.phone} onChange={set("phone")} />
-      <TextField label="ธนาคารที่รับเงิน" autoComplete="off" value={values.bankName} error={errors.bankName} onChange={set("bankName")} />
+      {required && (
+        <p className="rounded-xl border border-teal-200 bg-teal-50/60 p-3 text-sm text-slate-800">
+          กรอกแค่ชื่อก็สร้างได้ เบอร์โทรศัพท์ ธนาคาร และเลขบัญชี <strong>ผู้ยืมจะกรอกเอง</strong>หลังเข้าสู่ระบบครั้งแรก (ที่เมนู ข้อมูลของฉัน) — ใส่ให้เองตรงนี้ได้ถ้ามีข้อมูลอยู่แล้ว
+        </p>
+      )}
+      <TextField
+        label="เบอร์โทรศัพท์"
+        type="tel"
+        inputMode="tel"
+        autoComplete="off"
+        value={values.phone}
+        error={errors.phone}
+        hint={required ? "ไม่บังคับ" : undefined}
+        onChange={set("phone")}
+      />
+      <TextField label="ธนาคารที่รับเงิน" autoComplete="off" value={values.bankName} error={errors.bankName} hint={required ? "ไม่บังคับ" : undefined} onChange={set("bankName")} />
       <TextField
         label="เลขบัญชี"
         inputMode="numeric"
         autoComplete="off"
         value={values.bankAccountNo}
         error={errors.bankAccountNo}
-        hint="ตัวเลขและขีด (-) เท่านั้น"
+        hint={required ? "ไม่บังคับ · ตัวเลขและขีด (-) เท่านั้น" : "ตัวเลขและขีด (-) เท่านั้น"}
         onChange={set("bankAccountNo")}
       />
       {extra}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { PortalContractCard } from "@/components/PortalContract";
 import { Alert, Card, PageTitle, Spinner } from "@/components/ui";
-import { myRequestListSchema, portalContractListSchema } from "@/lib/schemas";
+import { myRequestListSchema, portalContractListSchema, profileSchema } from "@/lib/schemas";
 import { useSession } from "@/lib/session-store";
 import { useApi } from "@/lib/use-api";
 
@@ -11,6 +11,7 @@ export default function BorrowerHomePage() {
   const user = useSession((s) => s.user);
   const contracts = useApi("/me/contracts", portalContractListSchema);
   const requests = useApi("/me/loan-requests", myRequestListSchema);
+  const profile = useApi("/me/profile", profileSchema);
 
   const open = contracts.data?.items.filter((c) => c.status === "ACTIVE" || c.status === "AWAITING_DISBURSEMENT") ?? [];
   const pending = requests.data?.items.filter((r) => r.status === "PENDING").length ?? 0;
@@ -26,6 +27,18 @@ export default function BorrowerHomePage() {
       >
         + ขอยืมเงิน
       </Link>
+
+      {profile.data && !profile.data.profileComplete && (
+        <Alert kind="warning">
+          <p className="font-medium">กรุณากรอกเบอร์โทรศัพท์และเลขบัญชีของคุณก่อนขอยืมเงิน</p>
+          <p>
+            ผู้ให้กู้ต้องติดต่อคุณได้และรู้ว่าต้องโอนเงินเข้าบัญชีไหน{" "}
+            <Link href="/me/profile" className="font-medium underline">
+              กรอกข้อมูลของฉัน
+            </Link>
+          </p>
+        </Alert>
+      )}
 
       {contracts.error && <Alert kind="error">{contracts.error}</Alert>}
       {requests.error && <Alert kind="error">{requests.error}</Alert>}

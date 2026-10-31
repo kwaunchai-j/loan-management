@@ -6,6 +6,8 @@ import { SETTING_ID } from "../lib/rates.js";
 import { asyncHandler, sendError } from "../http.js";
 import { bangkokToday, formatDateOnly } from "../lib/dates.js";
 import type { FieldCipher } from "../lib/field-crypto.js";
+import { bankAccountNoField, bankNameField, isProfileComplete, phoneField } from "../lib/borrower-fields.js";
+import { writeAuditLog } from "../lib/audit.js";
 import { dateOnly, idParam, moneyAmount } from "../lib/schemas.js";
 import type { SlipStorage } from "../lib/slip-storage.js";
 import { computeState, detailInclude, type ContractWith } from "../loans/queries.js";
@@ -33,6 +35,14 @@ const submitQuery = z.object({
   paidOn: dateOnly,
   note: z.string().trim().min(1).max(500).optional(),
 });
+
+/**
+ * The borrower fills in their own phone, bank and account number (CR-5). The name is not theirs to change:
+ * it identifies who owes the money, so only the lender edits it.
+ */
+const profileBody = z
+  .object({ phone: phoneField.optional(), bankName: bankNameField.optional(), bankAccountNo: bankAccountNoField.optional() })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), "ไม่มีข้อมูลที่ต้องแก้ไข");
 
 export function createBorrowerPortalRouter(deps: {
   prisma: Db;
@@ -93,31 +103,71 @@ export function createBorrowerPortalRouter(deps: {
     }),
   );
 
+  const profileSelect = {
+    fullName: true,
+    phone: true,
+    bankName: true,
+    bankAccountNo: true,
+    pdpaAcceptedAt: true,
+    pdpaVersion: true,
+    user: { select: { username: true } },
+  } as const;
+  type ProfileRow = Awaited<ReturnType<typeof prisma.borrower.findUniqueOrThrow<{ where: { id: string }; select: typeof profileSelect }>>>;
+
+  const profileView = (b: ProfileRow) => ({
+    username: b.user?.username ?? null,
+    fullName: b.fullName,
+    phone: b.phone,
+    bankName: b.bankName,
+    // the borrower may see their own account number (DES-002); it is stored encrypted
+    bankAccountNo: b.bankAccountNo === null ? null : deps.cipher.decrypt(b.bankAccountNo),
+    // false until phone, bank and account number are all filled in: a loan cannot be requested before (CR-5)
+    profileComplete: isProfileComplete(b),
+    pdpaAcceptedAt: b.pdpaAcceptedAt,
+    pdpaVersion: b.pdpaVersion,
+  });
+
   router.get(
     "/profile",
     asyncHandler(async (req, res) => {
-      const b = await prisma.borrower.findUniqueOrThrow({
-        where: { id: sessionBorrowerId(req) },
-        select: {
-          fullName: true,
-          phone: true,
-          bankName: true,
-          bankAccountNo: true,
-          pdpaAcceptedAt: true,
-          pdpaVersion: true,
-          user: { select: { username: true } },
-        },
+      const b = await prisma.borrower.findUniqueOrThrow({ where: { id: sessionBorrowerId(req) }, select: profileSelect });
+      res.status(200).json(profileView(b));
+    }),
+  );
+
+  // The borrower fills in (or corrects) their own phone, bank and account number. Only these three: the name and
+  // the login belong to the lender. Written with an audit row of its own, the account number masked there.
+  router.patch(
+    "/profile",
+    asyncHandler(async (req, res) => {
+      const body = profileBody.safeParse(req.body);
+      if (!body.success) return sendError(res, 400, "VALIDATION_ERROR", body.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง");
+      const id = sessionBorrowerId(req);
+      const { bankAccountNo, ...rest } = body.data;
+      const updated = await prisma.$transaction(async (tx) => {
+        const before = await tx.borrower.findUniqueOrThrow({ where: { id }, select: profileSelect });
+        const after = await tx.borrower.update({
+          where: { id },
+          data: { ...rest, ...(bankAccountNo !== undefined ? { bankAccountNo: deps.cipher.encrypt(bankAccountNo) } : {}) },
+          select: profileSelect,
+        });
+        const detail = (b: ProfileRow) => ({
+          phone: b.phone,
+          bankName: b.bankName,
+          bankAccountNo: b.bankAccountNo === null ? null : deps.cipher.decrypt(b.bankAccountNo),
+        });
+        await writeAuditLog(tx, {
+          actorId: req.user!.id,
+          action: "borrower.selfUpdate",
+          entityType: "Borrower",
+          entityId: id,
+          before: detail(before),
+          after: detail(after),
+          extra: { changedFields: Object.keys(body.data) },
+        });
+        return after;
       });
-      res.status(200).json({
-        username: b.user?.username ?? null,
-        fullName: b.fullName,
-        phone: b.phone,
-        bankName: b.bankName,
-        // the borrower may see their own account number (DES-002); it is stored encrypted
-        bankAccountNo: b.bankAccountNo === null ? null : deps.cipher.decrypt(b.bankAccountNo),
-        pdpaAcceptedAt: b.pdpaAcceptedAt,
-        pdpaVersion: b.pdpaVersion,
-      });
+      res.status(200).json(profileView(updated));
     }),
   );
 

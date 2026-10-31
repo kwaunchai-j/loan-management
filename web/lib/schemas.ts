@@ -45,6 +45,19 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
+/** api/src/borrower/portal.ts — GET/PATCH /me/profile: the borrower's own details; `profileComplete` = phone, bank and account number are all filled in */
+export const profileSchema = z.object({
+  username: z.string().nullable(),
+  fullName: z.string(),
+  phone: z.string().nullable(),
+  bankName: z.string().nullable(),
+  bankAccountNo: z.string().nullable(),
+  profileComplete: z.boolean(),
+  pdpaAcceptedAt: z.string().nullable(),
+  pdpaVersion: z.string().nullable(),
+});
+export type Profile = z.infer<typeof profileSchema>;
+
 /** api/src/borrower/portal.ts — GET /me/payment-account: the lender's account to transfer to (all null until the admin sets it) */
 export const paymentAccountSchema = z.object({
   configured: z.boolean(),

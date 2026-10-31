@@ -34,7 +34,7 @@ describe("AppShell: the frame of every logged-in page", () => {
     signIn(borrowerUser);
     render(<AppShell>x</AppShell>);
     const hrefs = within(nav()).getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/me", "/me/request", "/me/contracts"]);
+    expect(hrefs).toEqual(["/me", "/me/request", "/me/contracts", "/me/profile"]);
     expect(hrefs.some((h) => h?.startsWith("/admin"))).toBe(false);
   });
 
