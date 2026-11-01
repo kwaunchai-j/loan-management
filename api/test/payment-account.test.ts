@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { hashPassword } from "../src/lib/password.js";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE, completeProfile } from "./helpers.js";
 
 const prisma = new PrismaClient();
 const dbUp = await prisma.$queryRaw`select 1`.then(() => true).catch(() => false);
@@ -36,7 +36,7 @@ describe.skipIf(!dbUp)("the lender's payment account (PostgreSQL)", () => {
       const user = await prisma.user.create({ data: { username: `${marker}-${u}`, role, passwordHash, mustChangePassword: false } });
       userIds.push(user.id);
       if (role === "BORROWER") {
-        borrowerIds.push((await prisma.borrower.create({ data: { userId: user.id, fullName: `${marker} ${u}`, pdpaAcceptedAt: u === "nopdpa" ? null : new Date() } })).id);
+        borrowerIds.push((await prisma.borrower.create({ data: { userId: user.id, fullName: `${marker} ${u}`, ...completeProfile(), pdpaAcceptedAt: u === "nopdpa" ? null : new Date() } })).id);
       }
     }
     server = buildApp({

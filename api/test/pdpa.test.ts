@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { PrismaClient } from "@prisma/client";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE, completeProfile } from "./helpers.js";
 import { buildApp } from "../src/app.js";
 import { PDPA_VERSION } from "../src/auth/pdpa.js";
 import { hashPassword } from "../src/lib/password.js";
@@ -65,6 +65,7 @@ describe.skipIf(!dbUp)("PDPA gate (PostgreSQL)", () => {
         data: {
           userId: u.id,
           fullName: `${marker} ${user}`,
+          ...completeProfile(),
           ...(user === "done"
             ? { pdpaAcceptedAt: new Date("2026-10-01T03:00:00Z"), pdpaVersion: "0-old" }
             : {}),

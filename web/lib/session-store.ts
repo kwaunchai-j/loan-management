@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ApiError, apiFetch, setUnauthorizedHandler } from "./api";
+import { ApiError, apiFetch, setProfileRequiredHandler, setUnauthorizedHandler } from "./api";
 import { loginResponseSchema, meResponseSchema, pdpaStatusSchema, type SessionUser } from "./schemas";
 
 /**
@@ -72,3 +72,7 @@ export const useSession = create<SessionState>((set, get) => ({
 
 // A 401 from any call means the session is gone: forget it, and the page guards send the user to /login.
 setUnauthorizedHandler(() => useSession.setState({ status: "anonymous", user: null }));
+
+// A 403 PROFILE_REQUIRED means the lender cleared this borrower's details meanwhile: ask who we are again, and the page
+// guards send the borrower to the profile page.
+setProfileRequiredHandler(() => void useSession.getState().load());

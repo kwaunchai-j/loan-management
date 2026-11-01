@@ -328,3 +328,76 @@ describe("borrower detail", () => {
     expect(await screen.findByText(/ยอมรับเมื่อ .* \(เวอร์ชัน 2025-01\)/)).toBeInTheDocument();
   });
 });
+
+describe("borrower detail: clearing the phone, bank and account number (CR-6)", () => {
+  const card = () => screen.getByRole("heading", { name: "ล้างข้อมูลติดต่อและบัญชีรับเงิน" }).closest("section")!;
+  const cleared = { ...somchai, phone: null, bankName: null, bankAccountNo: null };
+
+  it("offers it when the borrower has any of the three, and says what happens next", async () => {
+    mockApi({ "GET /admin/borrowers/b1": { body: somchai } });
+    await openDetail();
+    await screen.findByRole("heading", { name: "สมชาย ใจดี" });
+    expect(within(card()).getByText(/ผู้ยืมจะต้องกรอกใหม่เองก่อนจึงจะใช้งานระบบต่อได้/)).toBeInTheDocument();
+  });
+
+  it("is not offered when there is nothing to clear", async () => {
+    mockApi({ "GET /admin/borrowers/b1": { body: cleared } });
+    await openDetail();
+    await screen.findByRole("heading", { name: "สมชาย ใจดี" });
+    expect(screen.queryByRole("heading", { name: "ล้างข้อมูลติดต่อและบัญชีรับเงิน" })).not.toBeInTheDocument();
+  });
+
+  it("is offered when only one of the three is set", async () => {
+    mockApi({ "GET /admin/borrowers/b1": { body: { ...cleared, bankName: "กสิกรไทย" } } });
+    await openDetail();
+    await screen.findByRole("heading", { name: "สมชาย ใจดี" });
+    expect(card()).toBeInTheDocument();
+  });
+
+  it("needs a second click, and 'ไม่ล้าง' sends nothing", async () => {
+    const calls = mockApi({ "GET /admin/borrowers/b1": { body: somchai } });
+    await openDetail();
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "สมชาย ใจดี" });
+    await user.click(within(card()).getByRole("button", { name: "ล้างข้อมูลติดต่อและบัญชี" }));
+    expect(within(card()).getByText("ล้างข้อมูลของ สมชาย ใจดี?")).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+    await user.click(within(card()).getByRole("button", { name: "ไม่ล้าง" }));
+    expect(within(card()).getByRole("button", { name: "ล้างข้อมูลติดต่อและบัญชี" })).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+  });
+
+  it("confirming clears all three (null) and tells the admin the borrower must fill them in again", async () => {
+    let current: unknown = somchai;
+    const calls = mockApi({
+      "GET /admin/borrowers/b1": () => ({ body: current }),
+      "PATCH /admin/borrowers/b1": () => {
+        current = cleared;
+        return { body: cleared };
+      },
+    });
+    await openDetail();
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "สมชาย ใจดี" });
+    await user.click(within(card()).getByRole("button", { name: "ล้างข้อมูลติดต่อและบัญชี" }));
+    await user.click(within(card()).getByRole("button", { name: "ยืนยัน ล้างข้อมูล" }));
+    expect(await screen.findByText(/ผู้ยืมต้องกรอกใหม่ก่อนจึงจะใช้งานระบบต่อได้/)).toBeInTheDocument();
+    expect(calls.find((c) => c.method === "PATCH")!.body).toEqual({ phone: null, bankName: null, bankAccountNo: null });
+    // the page now shows empty details and no longer offers to clear them
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "ล้างข้อมูลติดต่อและบัญชีรับเงิน" })).not.toBeInTheDocument());
+  });
+
+  it("shows the API's refusal and leaves the details as they were", async () => {
+    mockApi({
+      "GET /admin/borrowers/b1": { body: somchai },
+      "PATCH /admin/borrowers/b1": apiError(500, "INTERNAL_ERROR", "พัง"),
+    });
+    await openDetail();
+    const user = userEvent.setup();
+    await screen.findByRole("heading", { name: "สมชาย ใจดี" });
+    await user.click(within(card()).getByRole("button", { name: "ล้างข้อมูลติดต่อและบัญชี" }));
+    await user.click(within(card()).getByRole("button", { name: "ยืนยัน ล้างข้อมูล" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("พัง");
+    expect(screen.getByText("0812345678")).toBeInTheDocument();
+  });
+});

@@ -87,6 +87,10 @@ function Detail({ b, onChanged }: { b: Borrower; onChanged: () => void }) {
         />
       </Card>
 
+      {(b.phone !== null || b.bankName !== null || b.bankAccountNo !== null) && (
+        <ClearDetails b={b} onError={(text) => setNotice({ kind: "error", text })} onDone={(text) => { setNotice({ kind: "success", text }); onChanged(); }} />
+      )}
+
       {b.account === null ? (
         <Alert kind="info">ผู้ยืมรายนี้ถูกนำเข้าจากไฟล์ และยังไม่มีบัญชีเข้าสู่ระบบ จึงเปิด/ปิดบัญชีหรือรีเซ็ตรหัสผ่านไม่ได้</Alert>
       ) : (
@@ -96,6 +100,54 @@ function Detail({ b, onChanged }: { b: Borrower; onChanged: () => void }) {
         </>
       )}
     </>
+  );
+}
+
+/**
+ * Takes away the borrower's phone, bank and account number (CR-6). The borrower is then held on "ข้อมูลของฉัน" at their
+ * next click and cannot use anything else until they have filled all three in again. Needs a second, deliberate click.
+ */
+function ClearDetails({ b, onDone, onError }: { b: Borrower; onDone: (text: string) => void; onError: (text: string) => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function clear() {
+    setBusy(true);
+    try {
+      await apiFetch(`/admin/borrowers/${encodeURIComponent(b.id)}`, { method: "PATCH", json: { phone: null, bankName: null, bankAccountNo: null }, schema: borrowerSchema });
+      setConfirming(false);
+      onDone(b.account ? "ล้างเบอร์โทร ธนาคาร และเลขบัญชีแล้ว ผู้ยืมต้องกรอกใหม่ก่อนจึงจะใช้งานระบบต่อได้" : "ล้างเบอร์โทร ธนาคาร และเลขบัญชีแล้ว");
+    } catch (err) {
+      setConfirming(false);
+      onError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="ล้างข้อมูลติดต่อและบัญชีรับเงิน">
+      <p className="mb-3 text-sm text-slate-700">
+        ลบเบอร์โทรศัพท์ ธนาคาร และเลขบัญชีของผู้ยืมรายนี้ ผู้ยืมจะต้องกรอกใหม่เองก่อนจึงจะใช้งานระบบต่อได้ (ใช้เมื่อข้อมูลเดิมไม่ถูกต้องหรือเปลี่ยนไปแล้ว)
+      </p>
+      {confirming ? (
+        <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-3">
+          <p className="font-medium text-slate-900">ล้างข้อมูลของ {b.fullName}?</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="danger" disabled={busy} onClick={() => void clear()}>
+              {busy ? "กำลังล้าง..." : "ยืนยัน ล้างข้อมูล"}
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => setConfirming(false)}>
+              ไม่ล้าง
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="secondary" onClick={() => setConfirming(true)}>
+          ล้างข้อมูลติดต่อและบัญชี
+        </Button>
+      )}
+    </Card>
   );
 }
 

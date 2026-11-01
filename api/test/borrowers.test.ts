@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { PrismaClient } from "@prisma/client";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE, completeProfile } from "./helpers.js";
 import { buildApp } from "../src/app.js";
 import { forbidClientBorrowerId, sessionBorrowerId } from "../src/auth/borrower-scope.js";
 import { hashPassword } from "../src/lib/password.js";
@@ -69,7 +69,7 @@ describe.skipIf(!dbUp)("admin borrower management (PostgreSQL)", () => {
     adminId = admin.id;
     const borrowerUser = await prisma.user.create({ data: { username: name("self"), role: "BORROWER", ...base } });
     const own = await prisma.borrower.create({
-      data: { userId: borrowerUser.id, fullName: `${marker} self`, pdpaAcceptedAt: new Date() },
+      data: { userId: borrowerUser.id, fullName: `${marker} self`, ...completeProfile(), pdpaAcceptedAt: new Date() },
     });
     ownBorrowerId = own.id;
 
@@ -287,10 +287,10 @@ describe.skipIf(!dbUp)("admin borrower management (PostgreSQL)", () => {
       });
     });
 
-    it("rejects empty updates, nulls and bad values without writing anything", async () => {
+    it("rejects empty updates, a null name and bad values without writing anything", async () => {
       const b = await createBorrower("edit-bad");
       expect((await call("PATCH", `/admin/borrowers/${b.id}`, {})).status).toBe(400);
-      expect((await call("PATCH", `/admin/borrowers/${b.id}`, { phone: null })).status).toBe(400);
+      expect((await call("PATCH", `/admin/borrowers/${b.id}`, { fullName: null })).status).toBe(400); // the name cannot be cleared
       expect((await call("PATCH", `/admin/borrowers/${b.id}`, { bankAccountNo: "x" })).status).toBe(400);
       expect((await call("PATCH", "/admin/borrowers/missing", { phone: "081-234-5678" })).status).toBe(404);
       expect(await auditFor(b.id, "borrower.update")).toHaveLength(0);

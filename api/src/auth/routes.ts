@@ -147,6 +147,8 @@ export function createAuthRouter(deps: AuthRouterDeps): Router {
         borrowerId: me.borrowerId,
         // BORROWER only: the web app sends the user to the PDPA page while this is false.
         pdpaAccepted: me.role === "BORROWER" ? me.pdpaAcceptedAt !== null : null,
+        // BORROWER only: the web app sends the user to "ข้อมูลของฉัน" while this is false (CR-6).
+        profileComplete: me.role === "BORROWER" ? me.profileComplete : null,
       },
     });
   });

@@ -1,27 +1,38 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Alert, Badge, Button, Card, Item, PageTitle, Spinner, TextField } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/api";
 import { profileSchema, type Profile } from "@/lib/schemas";
+import { useSession } from "@/lib/session-store";
 import { useApi } from "@/lib/use-api";
 import { checkBankAccount, checkBankName, checkPhone } from "@/lib/validation";
 
 /**
  * "ข้อมูลของฉัน": the borrower fills in their own phone number, bank and account number (CR-5). The lender creates
- * the account with the name only; these three are needed before a loan can be requested, because the lender has to
- * be able to reach the borrower and to know where to send the money. The name is shown but only the lender changes it.
+ * the account with the name only, and may clear these later (CR-6); until all three are filled in this is the only page
+ * the borrower can open, because the lender has to be able to reach them and to know where to send the money.
+ * The name is shown but only the lender changes it.
  */
 export default function ProfilePage() {
+  const router = useRouter();
   const profile = useApi("/me/profile", profileSchema);
   const [saved, setSaved] = useState<string | null>(null);
+  const forced = profile.data ? !profile.data.profileComplete : false;
   return (
     <>
       <PageTitle>ข้อมูลของฉัน</PageTitle>
       {profile.loading && <Spinner />}
       {profile.error && <Alert kind="error">{profile.error}</Alert>}
       {saved && <Alert kind="success">{saved}</Alert>}
+      {forced && (
+        <Alert kind="warning">
+          <p className="font-medium">กรุณากรอกเบอร์โทรศัพท์ ธนาคาร และเลขบัญชีของคุณให้ครบก่อน จึงจะใช้งานระบบต่อได้</p>
+          <p>ผู้ให้กู้ต้องใช้ข้อมูลนี้เพื่อติดต่อคุณและโอนเงินให้</p>
+        </Alert>
+      )}
       {profile.data && (
         <>
           <Card title="บัญชีของคุณ">
@@ -35,19 +46,22 @@ export default function ProfilePage() {
             <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-800">
               {profile.data.profileComplete ? <Badge tone="green">กรอกครบแล้ว</Badge> : <Badge tone="amber">ยังกรอกไม่ครบ</Badge>}
               {profile.data.profileComplete ? (
-                <Link href="/me/request" className="font-medium text-teal-800 underline">
-                  ไปขอยืมเงิน
+                <Link href="/me" className="font-medium text-teal-800 underline">
+                  ไปหน้าหลัก
                 </Link>
               ) : (
-                "ต้องกรอกทั้ง 3 ช่องก่อนจึงจะขอยืมเงินได้"
+                "ต้องกรอกทั้ง 3 ช่องก่อนจึงจะใช้งานระบบต่อได้"
               )}
             </p>
             <ProfileForm
               key={`${profile.data.phone}|${profile.data.bankName}|${profile.data.bankAccountNo}`}
               current={profile.data}
-              onSaved={(text) => {
+              onSaved={async (text) => {
                 setSaved(text);
                 profile.reload();
+                // the session now says the details are complete: a borrower who was held on this page goes on to the system
+                await useSession.getState().load();
+                if (forced && useSession.getState().user?.profileComplete === true) router.replace("/me");
               }}
               onSubmitting={() => setSaved(null)}
             />
@@ -60,7 +74,7 @@ export default function ProfilePage() {
 
 type Fields = "phone" | "bankName" | "bankAccountNo";
 
-function ProfileForm({ current, onSaved, onSubmitting }: { current: Profile; onSaved: (text: string) => void; onSubmitting: () => void }) {
+function ProfileForm({ current, onSaved, onSubmitting }: { current: Profile; onSaved: (text: string) => void | Promise<void>; onSubmitting: () => void }) {
   const [values, setValues] = useState({ phone: current.phone ?? "", bankName: current.bankName ?? "", bankAccountNo: current.bankAccountNo ?? "" });
   const [errors, setErrors] = useState<Partial<Record<Fields, string>>>({});
   const [apiError, setApiError] = useState<string | null>(null);
@@ -91,7 +105,7 @@ function ProfileForm({ current, onSaved, onSubmitting }: { current: Profile; onS
     onSubmitting();
     try {
       await apiFetch("/me/profile", { method: "PATCH", json: send, schema: profileSchema });
-      onSaved("บันทึกข้อมูลของคุณแล้ว");
+      await onSaved("บันทึกข้อมูลของคุณแล้ว");
     } catch (err) {
       setApiError(errorMessage(err));
     } finally {

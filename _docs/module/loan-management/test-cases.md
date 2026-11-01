@@ -1,7 +1,7 @@
 # ชุดทดสอบ (Test Cases) — ระบบขอยืมเงิน
 
 > เอกสารนี้ **สร้างจากการรันเทสต์จริง** ด้วย `tools/gen-test-catalog.mjs` — ทุกแถวคือเทสต์อัตโนมัติที่มีอยู่และรันได้ ไม่มีเคสที่เป็นแค่คำอธิบาย
-> สร้างเมื่อ 2026-10-31 · ผลรัน: API 656 เคส, Web 481 เคส · ผ่านทั้งหมด
+> สร้างเมื่อ 2026-11-01 · ผลรัน: API 663 เคส, Web 504 เคส · ผ่านทั้งหมด
 
 ## 1. วิธีรัน
 
@@ -55,7 +55,7 @@
 | ผู้ใช้และสิทธิ์ | `audit.test.ts` | F1 · F5 | lib/audit — AuditLog ใน transaction เดียวกับการเปลี่ยนข้อมูล | 13 |
 | ผู้ใช้และสิทธิ์ | `auth-lib.test.ts` | F1 | lib/password, session — scrypt, นโยบายรหัสผ่าน, token | 15 |
 | ผู้ใช้และสิทธิ์ | `auth.test.ts` | F1 | auth/routes — login/logout/me/เปลี่ยนรหัส, cookie, สิทธิ์ | 11 |
-| ผู้ใช้และสิทธิ์ | `borrower-profile.test.ts` | F1 · F3 · DES-021 | borrower/portal PATCH /me/profile + กั้นการขอยืม — ผู้ยืมกรอกเบอร์/เลขบัญชีเอง | 28 |
+| ผู้ใช้และสิทธิ์ | `borrower-profile.test.ts` | F1 · F3 · DES-021 | borrower/portal PATCH /me/profile + กั้นการขอยืม — ผู้ยืมกรอกเบอร์/เลขบัญชีเอง | 35 |
 | ผู้ใช้และสิทธิ์ | `borrowers.test.ts` | F1 · F8 | borrowers/* — สร้าง/แก้ผู้ยืม, บัญชี, ข้อมูลส่วนบุคคลเข้ารหัส | 22 |
 | ผู้ใช้และสิทธิ์ | `field-crypto.test.ts` | F1 · PDPA | lib/field-crypto — AES-GCM เข้ารหัสฟิลด์ | 8 |
 | ผู้ใช้และสิทธิ์ | `login-throttle.test.ts` | F1 | auth/throttle — จำกัดการเดารหัสผ่าน | 7 |
@@ -73,7 +73,7 @@
 | Deploy บน Vercel | `cron-routes.test.ts` | DEPLOY-VERCEL · F6 · F7 | jobs/cron-routes — งานกลางคืนเรียกผ่าน HTTP ด้วย CRON_SECRET | 16 |
 | Deploy บน Vercel | `db-url.test.ts` | DEPLOY-VERCEL | db.datasourceUrl — เติม pgbouncer=true ให้ pooled URL ของ Neon | 4 |
 | Deploy บน Vercel | `vercel-entry.test.ts` | DEPLOY-VERCEL | vercel.ts + bootstrap — entry ของ Vercel Function | 8 |
-| **รวม** | 41 ไฟล์ | | | **656** |
+| **รวม** | 41 ไฟล์ | | | **663** |
 
 ### รายการเคสทั้งหมด
 
@@ -568,15 +568,22 @@
 | API-24-017 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | works only on the borrower in the session: naming another borrower is refused and changes nothing | ✓ |
 | API-24-018 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | is for borrowers who accepted the PDPA terms: a visitor gets 401, an admin 403, an unconsented borrower 403 | ✓ |
 | API-24-019 | the borrower fills in their own details (PostgreSQL) › PATCH /me/profile | writes an audit row by the borrower, naming the fields and masking the account number | ✓ |
-| API-24-020 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | is refused with PROFILE_INCOMPLETE, and no request is saved | ✓ |
-| API-24-021 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | is refused when there is no phone | ✓ |
-| API-24-022 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | is refused when there is no bank | ✓ |
-| API-24-023 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | is refused when there is no account number | ✓ |
-| API-24-024 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | goes through once the borrower has filled the three in themself | ✓ |
-| API-24-025 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | does not touch a borrower whose profile is already complete | ✓ |
-| API-24-026 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | does not stop the lender from filing a request for a borrower (the admin route is not gated) | ✓ |
-| API-24-027 | the borrower fills in their own details (PostgreSQL) › asking for a loan needs the profile to be filled in first | does not stop the borrower from asking what the interest would be | ✓ |
-| API-24-028 | the borrower fills in their own details (PostgreSQL) › the whole path: the admin creates the account, the borrower comes in and fills in their own details | works from the admin form to a loan request | ✓ |
+| API-24-020 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | every other borrower route answers 403 PROFILE_REQUIRED, and no request is saved | ✓ |
+| API-24-021 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | the profile page itself stays open (read and write), and so does the PDPA step | ✓ |
+| API-24-022 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | a borrower with no phone is closed out too | ✓ |
+| API-24-023 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | a borrower with no bank is closed out too | ✓ |
+| API-24-024 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | a borrower with no account number is closed out too | ✓ |
+| API-24-025 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | opens the moment the borrower has filled the three in themself | ✓ |
+| API-24-026 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | does not touch a borrower whose details are complete | ✓ |
+| API-24-027 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | does not stop the lender from filing a request for a borrower (the admin route is not gated) | ✓ |
+| API-24-028 | the borrower fills in their own details (PostgreSQL) › a borrower whose details are incomplete can use nothing but their profile page (CR-6) | an administrator is not affected by any of this | ✓ |
+| API-24-029 | the borrower fills in their own details (PostgreSQL) › /auth/me tells the web app whether the details are complete | false for an incomplete borrower, true for a complete one, null for an admin | ✓ |
+| API-24-030 | the borrower fills in their own details (PostgreSQL) › the admin clears a borrower's details: they must fill them in again before using the system | a borrower who was using the system is shut out at once (their session stays valid), until they fill the details in again | ✓ |
+| API-24-031 | the borrower fills in their own details (PostgreSQL) › the admin clears a borrower's details: they must fill them in again before using the system | clearing just one detail is enough: the borrower must fill that one in again | ✓ |
+| API-24-032 | the borrower fills in their own details (PostgreSQL) › the admin clears a borrower's details: they must fill them in again before using the system | the name cannot be cleared, and clearing something the borrower never had is harmless | ✓ |
+| API-24-033 | the borrower fills in their own details (PostgreSQL) › the admin clears a borrower's details: they must fill them in again before using the system | is recorded in the audit log with the account number masked | ✓ |
+| API-24-034 | the borrower fills in their own details (PostgreSQL) › the admin clears a borrower's details: they must fill them in again before using the system | only an administrator can do it | ✓ |
+| API-24-035 | the borrower fills in their own details (PostgreSQL) › the whole path: the admin creates the account, the borrower comes in and fills in their own details | works from the admin form to a loan request | ✓ |
 
 #### API-25 · `borrowers.test.ts` — borrowers/* — สร้าง/แก้ผู้ยืม, บัญชี, ข้อมูลส่วนบุคคลเข้ารหัส
 
@@ -599,7 +606,7 @@
 | API-25-013 | admin borrower management (PostgreSQL) › list and get | lists, searches by name, paginates, and shows imported borrowers without an account | ✓ |
 | API-25-014 | admin borrower management (PostgreSQL) › list and get | returns one borrower or 404 | ✓ |
 | API-25-015 | admin borrower management (PostgreSQL) › update | changes only the given fields and audits before/after | ✓ |
-| API-25-016 | admin borrower management (PostgreSQL) › update | rejects empty updates, nulls and bad values without writing anything | ✓ |
+| API-25-016 | admin borrower management (PostgreSQL) › update | rejects empty updates, a null name and bad values without writing anything | ✓ |
 | API-25-017 | admin borrower management (PostgreSQL) › update | can fill in the details of an imported borrower | ✓ |
 | API-25-018 | admin borrower management (PostgreSQL) › deactivate and reactivate | blocks login and kills the live session, and can be undone | ✓ |
 | API-25-019 | admin borrower management (PostgreSQL) › deactivate and reactivate | rejects bad input and borrowers with no account | ✓ |
@@ -1036,17 +1043,17 @@
 | นำเข้าข้อมูล | `imports.test.tsx` | F10 | หน้านำเข้าข้อมูล | 27 |
 | ผู้ยืมแจ้งชำระ | `payment-submissions.test.tsx` | F5-CR1 · DES-017 | ผู้ยืมส่งสลิป / admin ตรวจและยืนยัน | 24 |
 | พอร์ทัลผู้ยืม | `borrower-portal.test.tsx` | F3 · F8 | หน้าผู้ยืม: สัญญา ขอยืม | 21 |
-| พอร์ทัลผู้ยืม | `borrower-profile.test.tsx` | F1 · F3 · DES-021 | หน้า "ข้อมูลของฉัน", ข้อความเตือนหน้าหลัก, ปิดปุ่มส่งคำขอจนกว่าจะกรอกครบ | 13 |
+| พอร์ทัลผู้ยืม | `borrower-profile.test.tsx` | F1 · F3 · DES-021 | หน้า "ข้อมูลของฉัน", ข้อความเตือนหน้าหลัก, ปิดปุ่มส่งคำขอจนกว่าจะกรอกครบ | 15 |
 | พอร์ทัลผู้ยืม | `interest-estimate.test.tsx` | F3 · DES-019 | components/InterestEstimate + หน้าขอยืม — กล่องดอกเบี้ยโดยประมาณ | 17 |
 | พอร์ทัลผู้ยืม | `payment-account.test.tsx` | F5 · DES-020 | modal บัญชีที่ต้องโอน (หน้าขอยืม/แจ้งชำระ) + ฟอร์มตั้งค่าฝั่ง admin | 17 |
 | รายงาน | `period-picker.test.tsx` | F9 | components/reports/PeriodPicker | 6 |
 | รายงาน | `reports.test.tsx` | F9 · DES-015 | หน้ารายงาน — แสดงตัวเลขจาก API ตามที่ได้รับ | 19 |
-| สิทธิ์และเมนู | `access.test.ts` | F1 | lib/access — หน้าที่แต่ละบทบาทเข้าได้ | 34 |
+| สิทธิ์และเมนู | `access.test.ts` | F1 | lib/access — หน้าที่แต่ละบทบาทเข้าได้ | 49 |
 | สิทธิ์และเมนู | `app-shell.test.tsx` | F1 | components/AppShell — เมนูตามบทบาท, ออกจากระบบ | 8 |
 | สิทธิ์และเมนู | `gate-and-pages.test.tsx` | F1 | layouts, login, PDPA, เปลี่ยนรหัสผ่าน, หน้าแรก | 26 |
 | สิทธิ์และเมนู | `gate.test.tsx` | F1 | components/Gate — ป้องกันหน้า, ลองใหม่เมื่อเชื่อมต่อไม่ได้ | 6 |
 | สิทธิ์และเมนู | `session-store.test.ts` | F1 | lib/session-store — สถานะผู้ใช้ | 9 |
-| หน้า admin | `admin-borrowers.test.tsx` | F1 · F8 | หน้าผู้ยืม | 25 |
+| หน้า admin | `admin-borrowers.test.tsx` | F1 · F8 | หน้าผู้ยืม | 31 |
 | หน้า admin | `admin-contracts.test.tsx` | F4 | หน้ารายการสัญญา | 6 |
 | หน้า admin | `admin-ledger.test.tsx` | F4 · F5 · DES-016 | หน้าสัญญา: จ่ายเงิน รับชำระ แก้/ลบ | 38 |
 | หน้า admin | `admin-requests.test.tsx` | F3 | หน้าคำขอยืม | 17 |
@@ -1057,7 +1064,7 @@
 | PWA | `next-config.test.ts` | Security | next.config — header ความปลอดภัย, proxy | 5 |
 | PWA | `register-sw.test.tsx` | F7 | components/RegisterServiceWorker | 5 |
 | PWA | `service-worker.test.ts` | F7 | public/sw.js — offline, push, notificationclick | 14 |
-| **รวม** | 31 ไฟล์ | | | **481** |
+| **รวม** | 31 ไฟล์ | | | **504** |
 
 ### รายการเคสทั้งหมด
 
@@ -1308,18 +1315,20 @@
 | รหัส | กลุ่ม | เคส | ผล |
 |---|---|---|---|
 | WEB-11-001 | ข้อมูลของฉัน (the borrower's own details) | shows the name and login as plain text (only the lender changes the name), and asks for the three details | ✓ |
-| WEB-11-002 | ข้อมูลของฉัน (the borrower's own details) | shows what is already there, and says it is complete with a way on to the loan request | ✓ |
-| WEB-11-003 | ข้อมูลของฉัน (the borrower's own details) | saves the three details, sends them trimmed, and then shows the profile as complete | ✓ |
-| WEB-11-004 | ข้อมูลของฉัน (the borrower's own details) | explains a mistake in each box and calls nothing | ✓ |
-| WEB-11-005 | ข้อมูลของฉัน (the borrower's own details) | sends only what changed, and says so when nothing did | ✓ |
-| WEB-11-006 | ข้อมูลของฉัน (the borrower's own details) | shows the API's refusal instead of saving silently | ✓ |
-| WEB-11-007 | ข้อมูลของฉัน (the borrower's own details) | shows an error when the profile cannot be loaded, not an empty form | ✓ |
-| WEB-11-008 | the reminder on the borrower's home page | asks the borrower to fill in their details, with a link to the page, while they are incomplete | ✓ |
-| WEB-11-009 | the reminder on the borrower's home page | says nothing once they are complete | ✓ |
-| WEB-11-010 | the reminder on the borrower's home page | does not nag when the profile could not be read (the API still enforces the rule) | ✓ |
-| WEB-11-011 | the loan request form needs the details first | while the details are incomplete: explains why, links to the page, and the send button is off | ✓ |
-| WEB-11-012 | the loan request form needs the details first | when complete: no warning, and the request is sent | ✓ |
-| WEB-11-013 | the loan request form needs the details first | shows the server's PROFILE_INCOMPLETE answer if the page did not know (the rule is enforced by the API) | ✓ |
+| WEB-11-002 | ข้อมูลของฉัน (the borrower's own details) | while the details are missing it says up front that nothing else opens until they are filled in | ✓ |
+| WEB-11-003 | ข้อมูลของฉัน (the borrower's own details) | when everything is filled in there is no such warning, and a way back to the home page | ✓ |
+| WEB-11-004 | ข้อมูลของฉัน (the borrower's own details) | saves the three details, sends them trimmed, and a borrower who was held here goes on to the home page | ✓ |
+| WEB-11-005 | ข้อมูลของฉัน (the borrower's own details) | a borrower who only corrects a detail stays on the page (no redirect) | ✓ |
+| WEB-11-006 | ข้อมูลของฉัน (the borrower's own details) | explains a mistake in each box and calls nothing | ✓ |
+| WEB-11-007 | ข้อมูลของฉัน (the borrower's own details) | says when nothing changed and sends nothing | ✓ |
+| WEB-11-008 | ข้อมูลของฉัน (the borrower's own details) | shows the API's refusal instead of saving silently | ✓ |
+| WEB-11-009 | ข้อมูลของฉัน (the borrower's own details) | shows an error when the profile cannot be loaded, not an empty form | ✓ |
+| WEB-11-010 | a borrower with missing details can open nothing but ข้อมูลของฉัน (CR-6) | is sent from the borrower home page to the profile page, and sees nothing of the page | ✓ |
+| WEB-11-011 | a borrower with missing details can open nothing but ข้อมูลของฉัน (CR-6) | is sent there from the loan request page too | ✓ |
+| WEB-11-012 | a borrower with missing details can open nothing but ข้อมูลของฉัน (CR-6) | is let onto the profile page itself, and the menu offers only that page | ✓ |
+| WEB-11-013 | a borrower with missing details can open nothing but ข้อมูลของฉัน (CR-6) | a borrower whose details are complete sees the whole menu and is not redirected | ✓ |
+| WEB-11-014 | a borrower with missing details can open nothing but ข้อมูลของฉัน (CR-6) | when the lender clears the details while the borrower is logged in, the next call that is refused re-reads who they are and they are held on the profile page | ✓ |
+| WEB-11-015 | a borrower with missing details can open nothing but ข้อมูลของฉัน (CR-6) | other refusals do not make the session re-read itself | ✓ |
 
 #### WEB-12 · `interest-estimate.test.tsx` — components/InterestEstimate + หน้าขอยืม — กล่องดอกเบี้ยโดยประมาณ
 
@@ -1417,37 +1426,52 @@
 | WEB-16-001 | destinationFor | sends anonymous visitors to the login page | ✓ |
 | WEB-16-002 | destinationFor | sends an admin to /admin and a consenting borrower to /me | ✓ |
 | WEB-16-003 | destinationFor | sends a borrower without PDPA acceptance to the PDPA page first | ✓ |
-| WEB-16-004 | destinationFor | forces a password change before everything else, for both roles | ✓ |
-| WEB-16-005 | resolveAccess (what each page lets in) | anonymous on a "anonymous" page | ✓ |
-| WEB-16-006 | resolveAccess (what each page lets in) | admin on a "anonymous" page | ✓ |
-| WEB-16-007 | resolveAccess (what each page lets in) | borrower on a "anonymous" page | ✓ |
-| WEB-16-008 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "anonymous" page | ✓ |
-| WEB-16-009 | resolveAccess (what each page lets in) | mustChange on a "anonymous" page | ✓ |
-| WEB-16-010 | resolveAccess (what each page lets in) | anonymous on a "change-password" page | ✓ |
-| WEB-16-011 | resolveAccess (what each page lets in) | admin on a "change-password" page | ✓ |
-| WEB-16-012 | resolveAccess (what each page lets in) | borrower on a "change-password" page | ✓ |
-| WEB-16-013 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "change-password" page | ✓ |
-| WEB-16-014 | resolveAccess (what each page lets in) | mustChange on a "change-password" page | ✓ |
-| WEB-16-015 | resolveAccess (what each page lets in) | anonymous on a "pdpa" page | ✓ |
-| WEB-16-016 | resolveAccess (what each page lets in) | admin on a "pdpa" page | ✓ |
-| WEB-16-017 | resolveAccess (what each page lets in) | borrower on a "pdpa" page | ✓ |
-| WEB-16-018 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "pdpa" page | ✓ |
-| WEB-16-019 | resolveAccess (what each page lets in) | mustChange on a "pdpa" page | ✓ |
-| WEB-16-020 | resolveAccess (what each page lets in) | anonymous on a "admin" page | ✓ |
-| WEB-16-021 | resolveAccess (what each page lets in) | admin on a "admin" page | ✓ |
-| WEB-16-022 | resolveAccess (what each page lets in) | borrower on a "admin" page | ✓ |
-| WEB-16-023 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "admin" page | ✓ |
-| WEB-16-024 | resolveAccess (what each page lets in) | mustChange on a "admin" page | ✓ |
-| WEB-16-025 | resolveAccess (what each page lets in) | anonymous on a "borrower" page | ✓ |
-| WEB-16-026 | resolveAccess (what each page lets in) | admin on a "borrower" page | ✓ |
-| WEB-16-027 | resolveAccess (what each page lets in) | borrower on a "borrower" page | ✓ |
-| WEB-16-028 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "borrower" page | ✓ |
-| WEB-16-029 | resolveAccess (what each page lets in) | mustChange on a "borrower" page | ✓ |
-| WEB-16-030 | resolveAccess (what each page lets in) | never lets a borrower into an admin page | ✓ |
-| WEB-16-031 | resolveAccess (what each page lets in) | never lets an admin into a borrower page | ✓ |
-| WEB-16-032 | menuFor | shows an admin the admin pages only | ✓ |
-| WEB-16-033 | menuFor | shows a borrower no admin page | ✓ |
-| WEB-16-034 | menuFor | is written in Thai | ✓ |
+| WEB-16-004 | destinationFor | holds a borrower whose phone, bank or account number is missing on the profile page (CR-6) | ✓ |
+| WEB-16-005 | destinationFor | asks for consent first, then for the details | ✓ |
+| WEB-16-006 | destinationFor | does not hold an admin on the profile page | ✓ |
+| WEB-16-007 | destinationFor | forces a password change before everything else, for both roles | ✓ |
+| WEB-16-008 | resolveAccess (what each page lets in) | anonymous on a "anonymous" page | ✓ |
+| WEB-16-009 | resolveAccess (what each page lets in) | admin on a "anonymous" page | ✓ |
+| WEB-16-010 | resolveAccess (what each page lets in) | borrower on a "anonymous" page | ✓ |
+| WEB-16-011 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "anonymous" page | ✓ |
+| WEB-16-012 | resolveAccess (what each page lets in) | mustChange on a "anonymous" page | ✓ |
+| WEB-16-013 | resolveAccess (what each page lets in) | borrowerNoDetails on a "anonymous" page | ✓ |
+| WEB-16-014 | resolveAccess (what each page lets in) | anonymous on a "change-password" page | ✓ |
+| WEB-16-015 | resolveAccess (what each page lets in) | admin on a "change-password" page | ✓ |
+| WEB-16-016 | resolveAccess (what each page lets in) | borrower on a "change-password" page | ✓ |
+| WEB-16-017 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "change-password" page | ✓ |
+| WEB-16-018 | resolveAccess (what each page lets in) | mustChange on a "change-password" page | ✓ |
+| WEB-16-019 | resolveAccess (what each page lets in) | borrowerNoDetails on a "change-password" page | ✓ |
+| WEB-16-020 | resolveAccess (what each page lets in) | anonymous on a "pdpa" page | ✓ |
+| WEB-16-021 | resolveAccess (what each page lets in) | admin on a "pdpa" page | ✓ |
+| WEB-16-022 | resolveAccess (what each page lets in) | borrower on a "pdpa" page | ✓ |
+| WEB-16-023 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "pdpa" page | ✓ |
+| WEB-16-024 | resolveAccess (what each page lets in) | mustChange on a "pdpa" page | ✓ |
+| WEB-16-025 | resolveAccess (what each page lets in) | borrowerNoDetails on a "pdpa" page | ✓ |
+| WEB-16-026 | resolveAccess (what each page lets in) | anonymous on a "admin" page | ✓ |
+| WEB-16-027 | resolveAccess (what each page lets in) | admin on a "admin" page | ✓ |
+| WEB-16-028 | resolveAccess (what each page lets in) | borrower on a "admin" page | ✓ |
+| WEB-16-029 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "admin" page | ✓ |
+| WEB-16-030 | resolveAccess (what each page lets in) | mustChange on a "admin" page | ✓ |
+| WEB-16-031 | resolveAccess (what each page lets in) | borrowerNoDetails on a "admin" page | ✓ |
+| WEB-16-032 | resolveAccess (what each page lets in) | anonymous on a "borrower" page | ✓ |
+| WEB-16-033 | resolveAccess (what each page lets in) | admin on a "borrower" page | ✓ |
+| WEB-16-034 | resolveAccess (what each page lets in) | borrower on a "borrower" page | ✓ |
+| WEB-16-035 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "borrower" page | ✓ |
+| WEB-16-036 | resolveAccess (what each page lets in) | mustChange on a "borrower" page | ✓ |
+| WEB-16-037 | resolveAccess (what each page lets in) | borrowerNoDetails on a "borrower" page | ✓ |
+| WEB-16-038 | resolveAccess (what each page lets in) | anonymous on a "profile" page | ✓ |
+| WEB-16-039 | resolveAccess (what each page lets in) | admin on a "profile" page | ✓ |
+| WEB-16-040 | resolveAccess (what each page lets in) | borrower on a "profile" page | ✓ |
+| WEB-16-041 | resolveAccess (what each page lets in) | borrowerNoPdpa on a "profile" page | ✓ |
+| WEB-16-042 | resolveAccess (what each page lets in) | mustChange on a "profile" page | ✓ |
+| WEB-16-043 | resolveAccess (what each page lets in) | borrowerNoDetails on a "profile" page | ✓ |
+| WEB-16-044 | resolveAccess (what each page lets in) | never lets a borrower into an admin page | ✓ |
+| WEB-16-045 | resolveAccess (what each page lets in) | sends a borrower with missing details from any borrower page to the profile page, and never lets an admin onto it | ✓ |
+| WEB-16-046 | resolveAccess (what each page lets in) | never lets an admin into a borrower page | ✓ |
+| WEB-16-047 | menuFor | shows an admin the admin pages only | ✓ |
+| WEB-16-048 | menuFor | shows a borrower no admin page | ✓ |
+| WEB-16-049 | menuFor | is written in Thai | ✓ |
 
 #### WEB-17 · `app-shell.test.tsx` — components/AppShell — เมนูตามบทบาท, ออกจากระบบ
 
@@ -1557,6 +1581,12 @@
 | WEB-21-023 | borrower detail | an imported borrower has no account: the account controls are not offered | ✓ |
 | WEB-21-024 | borrower detail | shows 'not found' from the API | ✓ |
 | WEB-21-025 | borrower detail | shows when the borrower accepted the PDPA terms | ✓ |
+| WEB-21-026 | borrower detail: clearing the phone, bank and account number (CR-6) | offers it when the borrower has any of the three, and says what happens next | ✓ |
+| WEB-21-027 | borrower detail: clearing the phone, bank and account number (CR-6) | is not offered when there is nothing to clear | ✓ |
+| WEB-21-028 | borrower detail: clearing the phone, bank and account number (CR-6) | is offered when only one of the three is set | ✓ |
+| WEB-21-029 | borrower detail: clearing the phone, bank and account number (CR-6) | needs a second click, and 'ไม่ล้าง' sends nothing | ✓ |
+| WEB-21-030 | borrower detail: clearing the phone, bank and account number (CR-6) | confirming clears all three (null) and tells the admin the borrower must fill them in again | ✓ |
+| WEB-21-031 | borrower detail: clearing the phone, bank and account number (CR-6) | shows the API's refusal and leaves the details as they were | ✓ |
 
 #### WEB-22 · `admin-contracts.test.tsx` — หน้ารายการสัญญา
 

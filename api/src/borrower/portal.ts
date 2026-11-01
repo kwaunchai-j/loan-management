@@ -17,7 +17,7 @@ import { z } from "zod";
 /**
  * What a borrower sees of their own data (T-503, DES-008, DES-005). Mounted at /me.
  *
- * Every route is behind `authorizeBorrower` (a BORROWER who has accepted the PDPA terms) and
+ * Every route is behind `authorizeBorrower` (a BORROWER who has accepted the PDPA terms and filled in their details) and
  * `forbidClientBorrowerId`: the borrower is ALWAYS the one in the session, never named by the
  * client. Another borrower's record is answered as "not found", so its existence is not revealed.
  *
@@ -55,8 +55,84 @@ export function createBorrowerPortalRouter(deps: {
   onPaymentSubmitted?: (submissionId: string) => void;
 }): Router {
   const router = Router();
-  router.use(deps.auth.authorizeBorrower, forbidClientBorrowerId);
   const { prisma } = deps;
+
+  // ---- the borrower's own details: the ONLY routes open to a borrower whose details are still incomplete (CR-6).
+  // They are declared before the guard below, so everything else needs phone, bank and account number first.
+  const profileSelect = {
+    fullName: true,
+    phone: true,
+    bankName: true,
+    bankAccountNo: true,
+    pdpaAcceptedAt: true,
+    pdpaVersion: true,
+    user: { select: { username: true } },
+  } as const;
+  type ProfileRow = Awaited<ReturnType<typeof prisma.borrower.findUniqueOrThrow<{ where: { id: string }; select: typeof profileSelect }>>>;
+
+  const profileView = (b: ProfileRow) => ({
+    username: b.user?.username ?? null,
+    fullName: b.fullName,
+    phone: b.phone,
+    bankName: b.bankName,
+    // the borrower may see their own account number (DES-002); it is stored encrypted
+    bankAccountNo: b.bankAccountNo === null ? null : deps.cipher.decrypt(b.bankAccountNo),
+    // false until phone, bank and account number are all filled in: a loan cannot be requested before (CR-5)
+    profileComplete: isProfileComplete(b),
+    pdpaAcceptedAt: b.pdpaAcceptedAt,
+    pdpaVersion: b.pdpaVersion,
+  });
+
+  router.get(
+    "/profile",
+    deps.auth.authorizeBorrowerForProfile,
+    forbidClientBorrowerId,
+    asyncHandler(async (req, res) => {
+      const b = await prisma.borrower.findUniqueOrThrow({ where: { id: sessionBorrowerId(req) }, select: profileSelect });
+      res.status(200).json(profileView(b));
+    }),
+  );
+
+  // The borrower fills in (or corrects) their own phone, bank and account number. Only these three: the name and
+  // the login belong to the lender. Written with an audit row of its own, the account number masked there.
+  router.patch(
+    "/profile",
+    deps.auth.authorizeBorrowerForProfile,
+    forbidClientBorrowerId,
+    asyncHandler(async (req, res) => {
+      const body = profileBody.safeParse(req.body);
+      if (!body.success) return sendError(res, 400, "VALIDATION_ERROR", body.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง");
+      const id = sessionBorrowerId(req);
+      const { bankAccountNo, ...rest } = body.data;
+      const updated = await prisma.$transaction(async (tx) => {
+        const before = await tx.borrower.findUniqueOrThrow({ where: { id }, select: profileSelect });
+        const after = await tx.borrower.update({
+          where: { id },
+          data: { ...rest, ...(bankAccountNo !== undefined ? { bankAccountNo: deps.cipher.encrypt(bankAccountNo) } : {}) },
+          select: profileSelect,
+        });
+        const detail = (b: ProfileRow) => ({
+          phone: b.phone,
+          bankName: b.bankName,
+          bankAccountNo: b.bankAccountNo === null ? null : deps.cipher.decrypt(b.bankAccountNo),
+        });
+        await writeAuditLog(tx, {
+          actorId: req.user!.id,
+          action: "borrower.selfUpdate",
+          entityType: "Borrower",
+          entityId: id,
+          before: detail(before),
+          after: detail(after),
+          extra: { changedFields: Object.keys(body.data) },
+        });
+        return after;
+      });
+      res.status(200).json(profileView(updated));
+    }),
+  );
+
+  // ---- everything else: a borrower who accepted the PDPA terms and has filled in their details
+  router.use(deps.auth.authorizeBorrower, forbidClientBorrowerId);
 
   function contractView(c: ContractWith, today: Date) {
     const { state, isOverdue, daysOverdue, isLate } = computeState(c, today);
@@ -103,73 +179,6 @@ export function createBorrowerPortalRouter(deps: {
     }),
   );
 
-  const profileSelect = {
-    fullName: true,
-    phone: true,
-    bankName: true,
-    bankAccountNo: true,
-    pdpaAcceptedAt: true,
-    pdpaVersion: true,
-    user: { select: { username: true } },
-  } as const;
-  type ProfileRow = Awaited<ReturnType<typeof prisma.borrower.findUniqueOrThrow<{ where: { id: string }; select: typeof profileSelect }>>>;
-
-  const profileView = (b: ProfileRow) => ({
-    username: b.user?.username ?? null,
-    fullName: b.fullName,
-    phone: b.phone,
-    bankName: b.bankName,
-    // the borrower may see their own account number (DES-002); it is stored encrypted
-    bankAccountNo: b.bankAccountNo === null ? null : deps.cipher.decrypt(b.bankAccountNo),
-    // false until phone, bank and account number are all filled in: a loan cannot be requested before (CR-5)
-    profileComplete: isProfileComplete(b),
-    pdpaAcceptedAt: b.pdpaAcceptedAt,
-    pdpaVersion: b.pdpaVersion,
-  });
-
-  router.get(
-    "/profile",
-    asyncHandler(async (req, res) => {
-      const b = await prisma.borrower.findUniqueOrThrow({ where: { id: sessionBorrowerId(req) }, select: profileSelect });
-      res.status(200).json(profileView(b));
-    }),
-  );
-
-  // The borrower fills in (or corrects) their own phone, bank and account number. Only these three: the name and
-  // the login belong to the lender. Written with an audit row of its own, the account number masked there.
-  router.patch(
-    "/profile",
-    asyncHandler(async (req, res) => {
-      const body = profileBody.safeParse(req.body);
-      if (!body.success) return sendError(res, 400, "VALIDATION_ERROR", body.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง");
-      const id = sessionBorrowerId(req);
-      const { bankAccountNo, ...rest } = body.data;
-      const updated = await prisma.$transaction(async (tx) => {
-        const before = await tx.borrower.findUniqueOrThrow({ where: { id }, select: profileSelect });
-        const after = await tx.borrower.update({
-          where: { id },
-          data: { ...rest, ...(bankAccountNo !== undefined ? { bankAccountNo: deps.cipher.encrypt(bankAccountNo) } : {}) },
-          select: profileSelect,
-        });
-        const detail = (b: ProfileRow) => ({
-          phone: b.phone,
-          bankName: b.bankName,
-          bankAccountNo: b.bankAccountNo === null ? null : deps.cipher.decrypt(b.bankAccountNo),
-        });
-        await writeAuditLog(tx, {
-          actorId: req.user!.id,
-          action: "borrower.selfUpdate",
-          entityType: "Borrower",
-          entityId: id,
-          before: detail(before),
-          after: detail(after),
-          extra: { changedFields: Object.keys(body.data) },
-        });
-        return after;
-      });
-      res.status(200).json(profileView(updated));
-    }),
-  );
 
   router.get(
     "/loan-requests",

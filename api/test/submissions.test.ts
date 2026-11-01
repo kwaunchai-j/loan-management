@@ -75,6 +75,8 @@ describe.skipIf(!dbUp)("borrower payment slips (CR-1, PostgreSQL)", () => {
       data: {
         userId: user.id,
         fullName: `${marker} ${label}`,
+        phone: "081-234-5678",
+        bankName: "ธนาคารทดสอบ",
         bankAccountNo: new FieldCipher(TEST_FIELD_KEY).encrypt("123-4-56789-0"),
         ...(o.pdpa === false ? {} : { pdpaAcceptedAt: new Date(), pdpaVersion: "1" }),
       },

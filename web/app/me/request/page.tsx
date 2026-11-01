@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { InterestEstimate } from "@/components/InterestEstimate";
 import { PaymentAccountButton } from "@/components/PaymentAccountModal";
@@ -8,7 +7,7 @@ import { RequestStatusBadge } from "@/components/status";
 import { Alert, Button, Card, PageTitle, Spinner, TextField } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/api";
 import { checkDate, checkMoney, formatBaht, formatDay, todayBangkok } from "@/lib/money";
-import { myRequestListSchema, profileSchema, requestSchema, type MyRequest } from "@/lib/schemas";
+import { myRequestListSchema, requestSchema, type MyRequest } from "@/lib/schemas";
 import { useApi } from "@/lib/use-api";
 
 export default function RequestPage() {
@@ -54,9 +53,6 @@ export default function RequestPage() {
 }
 
 function RequestForm({ onCreated }: { onCreated: () => void }) {
-  // the lender must be able to reach the borrower and know where to send the money (CR-5); the API enforces it too
-  const profile = useApi("/me/profile", profileSchema);
-  const incomplete = profile.data ? !profile.data.profileComplete : false;
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [errors, setErrors] = useState<{ amount?: string; dueDate?: string }>({});
@@ -93,17 +89,6 @@ function RequestForm({ onCreated }: { onCreated: () => void }) {
   return (
     <Card title="ส่งคำขอใหม่">
       <form onSubmit={(e) => void submit(e)} className="space-y-4" noValidate>
-        {incomplete && (
-          <Alert kind="warning">
-            <p className="font-medium">ยังส่งคำขอไม่ได้ เพราะข้อมูลของคุณยังไม่ครบ</p>
-            <p>
-              กรุณากรอกเบอร์โทรศัพท์ ธนาคาร และเลขบัญชีก่อน{" "}
-              <Link href="/me/profile" className="font-medium underline">
-                กรอกข้อมูลของฉัน
-              </Link>
-            </p>
-          </Alert>
-        )}
         {apiError && <Alert kind="error">{apiError}</Alert>}
         <TextField
           label="จำนวนเงินที่ต้องการยืม (บาท)"
@@ -124,7 +109,7 @@ function RequestForm({ onCreated }: { onCreated: () => void }) {
           hint="ต้องเป็นวันหลังจากวันนี้ ถ้าคืนช้ากว่าวันที่เลือก จะมีค่าปรับรายวัน"
           onChange={(e) => setDueDate(e.target.value)}
         />
-        <Button type="submit" className="w-full sm:w-auto" disabled={busy || incomplete}>
+        <Button type="submit" className="w-full sm:w-auto" disabled={busy}>
           {busy ? "กำลังส่ง..." : "ส่งคำขอ"}
         </Button>
       </form>

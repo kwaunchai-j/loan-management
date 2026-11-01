@@ -8,6 +8,8 @@ import type { SessionUser } from "./schemas";
  *   must change the first password      -> /change-password   (before anything else)
  *   ADMIN                               -> /admin
  *   BORROWER who has not accepted PDPA  -> /pdpa              (before any borrower page)
+ *   BORROWER with phone, bank or account
+ *     number missing                    -> /me/profile        (the only borrower page open to them, CR-6)
  *   BORROWER                            -> /me
  *
  * This only decides what the PAGES show. The real access control is in the API, which refuses
@@ -19,10 +21,12 @@ export function destinationFor(user: SessionUser | null): string {
   if (user.role === "ADMIN") return "/admin";
   // a borrower whose PDPA status is anything but "accepted" is sent to accept it first
   if (user.pdpaAccepted !== true) return "/pdpa";
+  // the lender must be able to reach the borrower and know where to send the money: until the details are in, nothing else opens
+  if (user.profileComplete !== true) return "/me/profile";
   return "/me";
 }
 
-export type Need = "anonymous" | "change-password" | "pdpa" | "admin" | "borrower";
+export type Need = "anonymous" | "change-password" | "pdpa" | "admin" | "borrower" | "profile";
 
 const HOME_OF: Record<Need, string> = {
   anonymous: "/login",
@@ -30,6 +34,7 @@ const HOME_OF: Record<Need, string> = {
   pdpa: "/pdpa",
   admin: "/admin",
   borrower: "/me",
+  profile: "/me/profile",
 };
 
 export type Access = { allowed: true } | { allowed: false; redirect: string };
@@ -37,7 +42,9 @@ export type Access = { allowed: true } | { allowed: false; redirect: string };
 /** May `user` see a page that needs `need`? If not, where must they go instead? */
 export function resolveAccess(user: SessionUser | null, need: Need): Access {
   const destination = destinationFor(user);
-  return destination === HOME_OF[need] ? { allowed: true } : { allowed: false, redirect: destination };
+  // the profile page is for a borrower who has to fill the details in, and stays open to one who already has
+  const ok = need === "profile" ? destination === "/me" || destination === "/me/profile" : destination === HOME_OF[need];
+  return ok ? { allowed: true } : { allowed: false, redirect: destination };
 }
 
 export interface NavItem {

@@ -63,5 +63,5 @@ export function valid<T>(schema: ZodType<T>, value: unknown): T {
   return schema.parse(value);
 }
 
-export const admin = { id: "u1", username: "boss", role: "ADMIN", mustChangePassword: false, borrowerId: null, pdpaAccepted: null } as const;
-export const borrowerUser = { id: "u2", username: "somchai", role: "BORROWER", mustChangePassword: false, borrowerId: "b1", pdpaAccepted: true } as const;
+export const admin = { id: "u1", username: "boss", role: "ADMIN", mustChangePassword: false, borrowerId: null, pdpaAccepted: null, profileComplete: null } as const;
+export const borrowerUser = { id: "u2", username: "somchai", role: "BORROWER", mustChangePassword: false, borrowerId: "b1", pdpaAccepted: true, profileComplete: true } as const;

@@ -45,7 +45,9 @@ export function AppShell({ children, wide = false }: { children: ReactNode; wide
   const [leaving, setLeaving] = useState(false);
   if (!user) return null;
 
-  const items = menuFor(user.role);
+  const all = menuFor(user.role);
+  // a borrower who still has to fill in their details can open nothing else (CR-6): do not offer what would only bounce back
+  const items = user.role === "BORROWER" && user.profileComplete !== true ? all.filter((i) => i.href === "/me/profile") : all;
   const active = (href: string) => (href === "/admin" || href === "/me" ? pathname === href : pathname.startsWith(href));
   const width = wide ? "max-w-5xl" : "max-w-3xl";
 

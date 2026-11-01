@@ -196,37 +196,57 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
     });
   });
 
-  describe("asking for a loan needs the profile to be filled in first", () => {
-    it("is refused with PROFILE_INCOMPLETE, and no request is saved", async () => {
-      const res = await requestLoan("empty");
-      expect(res.status).toBe(409);
-      const body = await res.json();
-      expect(body.error.code).toBe("PROFILE_INCOMPLETE");
-      expect(body.error.message).toContain("ข้อมูลของฉัน");
+  describe("a borrower whose details are incomplete can use nothing but their profile page (CR-6)", () => {
+    const CLOSED = [
+      ["GET", "/me/contracts"],
+      ["GET", "/me/loan-requests"],
+      ["GET", "/me/payment-account"],
+      ["GET", "/me/payment-submissions"],
+      ["GET", "/loan-requests/interest-estimate?amount=1000"],
+      ["POST", "/loan-requests"],
+      ["POST", "/loan-requests/someid/cancel"],
+    ] as const;
+
+    it("every other borrower route answers 403 PROFILE_REQUIRED, and no request is saved", async () => {
+      for (const [method, path] of CLOSED) {
+        const res = await api("empty", method, path, method === "POST" ? { amount: "1000", requestedDueDate: tomorrow() } : undefined);
+        expect(res.status, `${method} ${path}`).toBe(403);
+        const body = await res.json();
+        expect(body.error.code, `${method} ${path}`).toBe("PROFILE_REQUIRED");
+        expect(body.error.message).toContain("เลขบัญชี");
+      }
       expect(await prisma.loanRequest.count({ where: { borrowerId: borrowerIds.empty } })).toBe(0);
+    });
+
+    it("the profile page itself stays open (read and write), and so does the PDPA step", async () => {
+      expect((await api("empty", "GET", "/me/profile")).status).toBe(200);
+      expect((await patch("empty", {})).status).toBe(400); // reached, then refused for being empty: not a 403
+      expect((await api("empty", "GET", "/pdpa")).status).toBe(200);
     });
 
     it.each([
       ["no phone", { bankName: "ธนาคารกรุงเทพ", bankAccountNo: "1234567890" }],
       ["no bank", { phone: "0812345678", bankAccountNo: "1234567890" }],
       ["no account number", { phone: "0812345678", bankName: "ธนาคารกรุงเทพ" }],
-    ])("is refused when there is %s", async (label, data) => {
+    ])("a borrower with %s is closed out too", async (label, data) => {
       const key = `gate-${label.replace(/\W/g, "")}`;
       await makeBorrower(key, data);
-      expect((await requestLoan(key)).status).toBe(409);
+      expect((await api(key, "GET", "/me/contracts")).status).toBe(403);
+      expect((await requestLoan(key)).status).toBe(403);
       expect(await prisma.loanRequest.count({ where: { borrowerId: borrowerIds[key] } })).toBe(0);
     });
 
-    it("goes through once the borrower has filled the three in themself", async () => {
+    it("opens the moment the borrower has filled the three in themself", async () => {
       await makeBorrower("later");
-      expect((await requestLoan("later")).status).toBe(409);
+      expect((await requestLoan("later")).status).toBe(403);
       expect((await patch("later", FULL)).status).toBe(200);
-      const res = await requestLoan("later");
-      expect(res.status).toBe(201);
+      expect((await api("later", "GET", "/me/contracts")).status).toBe(200);
+      expect((await requestLoan("later")).status).toBe(201);
       expect(await prisma.loanRequest.count({ where: { borrowerId: borrowerIds.later } })).toBe(1);
     });
 
-    it("does not touch a borrower whose profile is already complete", async () => {
+    it("does not touch a borrower whose details are complete", async () => {
+      expect((await api("done", "GET", "/me/contracts")).status).toBe(200);
       expect((await requestLoan("done")).status).toBe(201);
     });
 
@@ -235,8 +255,72 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
       expect(res.status).toBe(201);
     });
 
-    it("does not stop the borrower from asking what the interest would be", async () => {
-      expect((await api("empty", "GET", "/loan-requests/interest-estimate?amount=1000")).status).toBe(200);
+    it("an administrator is not affected by any of this", async () => {
+      expect((await api("admin", "GET", "/admin/settings")).status).toBe(200);
+    });
+  });
+
+  describe("/auth/me tells the web app whether the details are complete", () => {
+    it("false for an incomplete borrower, true for a complete one, null for an admin", async () => {
+      expect((await (await api("empty", "GET", "/auth/me")).json()).user.profileComplete).toBe(false);
+      expect((await (await api("done", "GET", "/auth/me")).json()).user.profileComplete).toBe(true);
+      expect((await (await api("admin", "GET", "/auth/me")).json()).user.profileComplete).toBeNull();
+    });
+  });
+
+  describe("the admin clears a borrower's details: they must fill them in again before using the system", () => {
+    const adminPatch = (key: string, body: unknown) => api("admin", "PATCH", `/admin/borrowers/${borrowerIds[key]}`, body);
+
+    it("a borrower who was using the system is shut out at once (their session stays valid), until they fill the details in again", async () => {
+      await makeBorrower("wiped", FULL);
+      expect((await api("wiped", "GET", "/me/contracts")).status).toBe(200);
+
+      const res = await adminPatch("wiped", { phone: null, bankName: null, bankAccountNo: null });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ phone: null, bankName: null, bankAccountNo: null });
+      const stored = await row("wiped");
+      expect([stored.phone, stored.bankName, stored.bankAccountNo]).toEqual([null, null, null]);
+
+      const closed = await api("wiped", "GET", "/me/contracts");
+      expect(closed.status).toBe(403);
+      expect((await closed.json()).error.code).toBe("PROFILE_REQUIRED");
+      expect((await (await api("wiped", "GET", "/auth/me")).json()).user.profileComplete).toBe(false);
+      expect(await (await api("wiped", "GET", "/me/profile")).json()).toMatchObject({ phone: null, profileComplete: false, fullName: `${marker} wiped` });
+
+      expect((await patch("wiped", { phone: "089-000-1111", bankName: "ธนาคารออมสิน", bankAccountNo: "000-1-11111-1" })).status).toBe(200);
+      expect((await api("wiped", "GET", "/me/contracts")).status).toBe(200);
+    });
+
+    it("clearing just one detail is enough: the borrower must fill that one in again", async () => {
+      await makeBorrower("partial", FULL);
+      expect((await adminPatch("partial", { bankAccountNo: null })).status).toBe(200);
+      expect((await row("partial")).phone).toBe(FULL.phone); // the rest is kept
+      expect((await api("partial", "GET", "/me/contracts")).status).toBe(403);
+      expect((await patch("partial", { bankAccountNo: "222-3-33333-3" })).status).toBe(200);
+      expect((await api("partial", "GET", "/me/contracts")).status).toBe(200);
+    });
+
+    it("the name cannot be cleared, and clearing something the borrower never had is harmless", async () => {
+      await makeBorrower("noname");
+      expect((await adminPatch("noname", { fullName: null })).status).toBe(400);
+      expect((await adminPatch("noname", { phone: null })).status).toBe(200);
+      expect((await row("noname")).fullName).toBe(`${marker} noname`);
+    });
+
+    it("is recorded in the audit log with the account number masked", async () => {
+      await makeBorrower("audited", FULL);
+      await adminPatch("audited", { bankAccountNo: null, phone: null });
+      const rows = await prisma.auditLog.findMany({ where: { action: "borrower.update", entityId: borrowerIds.audited } });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.detail).toMatchObject({ before: { phone: FULL.phone, bankAccountNo: "****7890" }, after: { phone: null, bankAccountNo: null } });
+      expect(JSON.stringify(rows[0]!.detail)).not.toContain("56789");
+    });
+
+    it("only an administrator can do it", async () => {
+      await makeBorrower("guard", FULL);
+      const res = await api("guard", "PATCH", `/admin/borrowers/${borrowerIds.guard}`, { phone: null });
+      expect(res.status).toBe(403);
+      expect((await row("guard")).phone).toBe(FULL.phone);
     });
   });
 
@@ -261,7 +345,7 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
       cookies.journey = again.headers.getSetCookie().find((c) => c.startsWith("loan_session="))!.split(";")[0]!;
       await prisma.borrower.update({ where: { id: borrower.id }, data: { pdpaAcceptedAt: new Date(), pdpaVersion: "test" } }); // the PDPA step (tested in pdpa.test.ts)
 
-      expect((await requestLoan("journey")).status).toBe(409); // details first
+      expect((await requestLoan("journey")).status).toBe(403); // details first
       expect((await patch("journey", FULL)).status).toBe(200);
       expect((await requestLoan("journey")).status).toBe(201);
 

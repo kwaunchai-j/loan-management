@@ -4,6 +4,7 @@ import type { Db } from "../db.js";
 import { SESSION_COOKIE, parseCookies } from "../lib/cookie.js";
 import { passwordVersion, verifySession } from "../lib/session.js";
 import { asyncHandler, sendError } from "../http.js";
+import { isProfileComplete } from "../lib/borrower-fields.js";
 
 /** lib:authz — the authenticated principal, always reloaded from the database. */
 export interface AuthUser {
@@ -15,6 +16,11 @@ export interface AuthUser {
   borrowerId: string | null;
   /** When the borrower accepted the PDPA terms; null until then (always null for ADMIN). */
   pdpaAcceptedAt: Date | null;
+  /**
+   * BORROWER only: phone, bank and account number are all filled in (CR-5/CR-6). While false the borrower may
+   * use nothing but their profile page, so the lender is never without a way to reach them or to pay them.
+   */
+  profileComplete: boolean;
 }
 
 declare global {
@@ -33,9 +39,12 @@ export interface AuthMiddleware {
   authorize: (...roles: Role[]) => RequestHandler;
   /**
    * Guard for EVERY borrower-facing endpoint (DES-002): a BORROWER with a borrower profile who has
-   * accepted the PDPA terms. Others get 403 (PDPA_REQUIRED until accepted).
+   * accepted the PDPA terms AND filled in phone, bank and account number. Others get 403
+   * (PDPA_REQUIRED until accepted, then PROFILE_REQUIRED until the details are in).
    */
   authorizeBorrower: RequestHandler;
+  /** Like `authorizeBorrower` but without the details check: only for the profile page's own endpoints (CR-6). */
+  authorizeBorrowerForProfile: RequestHandler;
   /** Same as `authorizeBorrower` but without the PDPA check — only for the PDPA endpoints themselves. */
   authorizeBorrowerForPdpa: RequestHandler;
 }
@@ -54,7 +63,7 @@ export function createAuthMiddleware(deps: { prisma: Db; sessionSecret: string }
             isActive: true,
             mustChangePassword: true,
             passwordHash: true,
-            borrower: { select: { id: true, pdpaAcceptedAt: true } },
+            borrower: { select: { id: true, pdpaAcceptedAt: true, phone: true, bankName: true, bankAccountNo: true } },
           },
         })
       : null;
@@ -68,6 +77,7 @@ export function createAuthMiddleware(deps: { prisma: Db; sessionSecret: string }
       mustChangePassword: user.mustChangePassword,
       borrowerId: user.borrower?.id ?? null,
       pdpaAcceptedAt: user.borrower?.pdpaAcceptedAt ?? null,
+      profileComplete: user.borrower ? isProfileComplete(user.borrower) : false,
     };
     next();
   });
@@ -90,7 +100,7 @@ export function createAuthMiddleware(deps: { prisma: Db; sessionSecret: string }
     };
 
   const borrowerGuard =
-    (requirePdpa: boolean): RequestHandler =>
+    (requirePdpa: boolean, requireProfile: boolean): RequestHandler =>
     (req, res, next) => {
       authorize("BORROWER")(req, res, (err?: unknown) => {
         if (err) return next(err);
@@ -106,6 +116,9 @@ export function createAuthMiddleware(deps: { prisma: Db; sessionSecret: string }
             "กรุณายอมรับเงื่อนไขการเก็บข้อมูลส่วนบุคคลก่อนใช้งาน",
           );
         }
+        if (requireProfile && !user.profileComplete) {
+          return sendError(res, 403, "PROFILE_REQUIRED", "กรุณากรอกเบอร์โทรศัพท์ ธนาคาร และเลขบัญชีของคุณก่อนใช้งาน");
+        }
         next();
       });
     };
@@ -113,7 +126,8 @@ export function createAuthMiddleware(deps: { prisma: Db; sessionSecret: string }
   return {
     authenticate,
     authorize,
-    authorizeBorrower: borrowerGuard(true),
-    authorizeBorrowerForPdpa: borrowerGuard(false),
+    authorizeBorrower: borrowerGuard(true, true),
+    authorizeBorrowerForProfile: borrowerGuard(true, false),
+    authorizeBorrowerForPdpa: borrowerGuard(false, false),
   };
 }

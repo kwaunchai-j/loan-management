@@ -17,10 +17,16 @@ export class ApiError extends Error {
 }
 
 let unauthorizedHandler: (() => void) | null = null;
+let profileRequiredHandler: (() => void) | null = null;
 
 /** The session store registers itself here so a 401 anywhere sends the user back to the login page. */
 export function setUnauthorizedHandler(fn: (() => void) | null): void {
   unauthorizedHandler = fn;
+}
+
+/** The session store registers itself here so "your details are needed" (403 PROFILE_REQUIRED) re-reads who we are. */
+export function setProfileRequiredHandler(fn: (() => void) | null): void {
+  profileRequiredHandler = fn;
 }
 
 export const NETWORK_MESSAGE = "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่";
@@ -65,6 +71,7 @@ export async function apiFetch<T = void>(path: string, options: ApiOptions<T> = 
       /* not JSON: keep the generic message */
     }
     if (res.status === 401 && code === "UNAUTHENTICATED") unauthorizedHandler?.();
+    if (res.status === 403 && code === "PROFILE_REQUIRED") profileRequiredHandler?.();
     throw new ApiError(res.status, code, message);
   }
 

@@ -23,6 +23,8 @@ export const sessionUserSchema = z.object({
   mustChangePassword: z.boolean(),
   borrowerId: z.string().nullable(),
   pdpaAccepted: z.boolean().nullable(),
+  /** BORROWER only: phone, bank and account number are all filled in; null for an admin (CR-6) */
+  profileComplete: z.boolean().nullable(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 export const meResponseSchema = z.object({ user: sessionUserSchema });

@@ -38,9 +38,10 @@ const createBody = z.object({
 const updateBody = z
   .object({
     fullName: fullName.optional(),
-    phone: phone.optional(),
-    bankName: bankName.optional(),
-    bankAccountNo: bankAccountNo.optional(),
+    // null clears it (CR-6): the borrower must then fill it in again before they can use the system
+    phone: phone.nullable().optional(),
+    bankName: bankName.nullable().optional(),
+    bankAccountNo: bankAccountNo.nullable().optional(),
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), "ไม่มีข้อมูลที่ต้องแก้ไข");
 
@@ -213,7 +214,7 @@ export function createAdminBorrowersRouter(deps: {
           where: { id: before.id },
           data: {
             ...rest,
-            ...(bankAccountNo !== undefined ? { bankAccountNo: cipher.encrypt(bankAccountNo) } : {}),
+            ...(bankAccountNo !== undefined ? { bankAccountNo: bankAccountNo === null ? null : cipher.encrypt(bankAccountNo) } : {}),
           },
           select: borrowerSelect,
         });
