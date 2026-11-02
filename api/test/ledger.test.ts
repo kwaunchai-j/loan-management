@@ -558,6 +558,30 @@ describe.skipIf(!dbUp)("payments, late fees, edits, deletes and queries (Postgre
       expect((await prisma.contract.findUniqueOrThrow({ where: { id: contractId } })).principal.toString()).toBe("3000");
     });
 
+    it("an imported contract (no rate, no payout date) can be corrected too", async () => {
+      const c = await prisma.contract.create({
+        data: {
+          contractNo: `T-${marker}-${++seq}`,
+          borrowerId,
+          principal: "3000",
+          dueDate: new Date(`${day(30)}T00:00:00Z`),
+          status: "ACTIVE",
+          lateFeeRatePctPerDay: "1",
+          interestAmount: "2170",
+          outstandingPrincipal: "3000",
+          outstandingInterest: "2170",
+          isImported: true,
+        },
+      });
+      const res = await call("admin", "PATCH", `/admin/contracts/${c.id}`, { principal: "2500", interestAmount: "1000" });
+      expect(res.status).toBe(200);
+      expect((await res.json()).contract).toMatchObject({ principal: "2500", interestAmount: "1000", totalDue: "3500" });
+      // without a rate the interest cannot be recomputed: it stays as it was
+      const only = await call("admin", "PATCH", `/admin/contracts/${c.id}`, { principal: "2000" });
+      expect(only.status).toBe(200);
+      expect((await only.json()).contract).toMatchObject({ principal: "2000", interestAmount: "1000", totalDue: "3000" });
+    });
+
     it("refuses what is not allowed and changes nothing", async () => {
       const { contractId } = await disbursed("3000", 30, 5);
       expect((await call("admin", "PATCH", `/admin/contracts/${contractId}`, { dueDate: day(-5) })).status).toBe(400); // not in the future

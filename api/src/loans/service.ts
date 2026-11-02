@@ -250,7 +250,8 @@ const contractAudit = (c: { principal: Prisma.Decimal; dueDate: Date; interestAm
  *  - AWAITING_DISBURSEMENT: principal and due date (no interest exists before the payout).
  *  - ACTIVE / CLOSED: also the interest. The payout row follows the principal (it always equals it).
  *    When the principal or due date change and no interest is given, the interest is recomputed with
- *    the contract's own locked rate; a given interest is kept as typed. Then the whole contract is
+ *    the contract's own locked rate (an imported contract has none: its interest is kept); a given
+ *    interest is kept as typed. Then the whole contract is
  *    replayed like any other change to money after the payout (DES-016).
  *  - CANCELLED: refused.
  */
@@ -298,9 +299,6 @@ export async function updateContract(
         }
 
         if (before.status !== "ACTIVE" && before.status !== "CLOSED") throw wrongState("สัญญา");
-        if (before.interestRatePctPerMonth === null || before.disbursedOn === null) {
-          throw new Error(`contract ${before.id} is ${before.status} but has no interest rate or payout date`);
-        }
         const principal = patch.principal === undefined ? before.principal : new Prisma.Decimal(patch.principal);
         const dueDate = patch.dueDate ?? before.dueDate;
         const termsChanged = !principal.equals(before.principal) || dueDate.getTime() !== before.dueDate.getTime();
@@ -308,7 +306,8 @@ export async function updateContract(
         let interestAmount = before.interestAmount;
         if (patch.interestAmount !== undefined) {
           interestAmount = new Prisma.Decimal(patch.interestAmount);
-        } else if (termsChanged) {
+        } else if (termsChanged && before.interestRatePctPerMonth !== null && before.disbursedOn !== null) {
+          // An imported contract has no rate or payout date to recompute from: its interest stays as it is.
           try {
             interestAmount = computeInterest({
               principal,
