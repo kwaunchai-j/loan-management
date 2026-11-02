@@ -3,6 +3,8 @@ import type { Db } from "../db.js";
 import { DomainError } from "../http.js";
 import { writeAuditLog } from "../lib/audit.js";
 import { bangkokToday, formatDateOnly } from "../lib/dates.js";
+import { computeInterest, InterestError } from "../lib/interest.js";
+import { ledgerSnapshot, lockContract, reconcileContract, withLedgerErrors } from "./ledger.js";
 
 /**
  * Loan requests and contracts before money moves (DES-004, DES-005).
@@ -234,4 +236,116 @@ export async function cancelContract(prisma: Db, id: string, actorId: string, re
       select: { id: true, contractNo: true, status: true, principal: true, dueDate: true, borrowerId: true },
     });
   });
+}
+
+const contractAudit = (c: { principal: Prisma.Decimal; dueDate: Date; interestAmount: Prisma.Decimal | null }) => ({
+  principal: c.principal,
+  dueDate: formatDateOnly(c.dueDate),
+  interestAmount: c.interestAmount,
+});
+
+/**
+ * ADMIN corrects the terms of a contract (the router enforces ADMIN): principal, interest, due date.
+ * The total owed is never typed in — it is principal + interest + late fee, so it follows.
+ *  - AWAITING_DISBURSEMENT: principal and due date (no interest exists before the payout).
+ *  - ACTIVE / CLOSED: also the interest. The payout row follows the principal (it always equals it).
+ *    When the principal or due date change and no interest is given, the interest is recomputed with
+ *    the contract's own locked rate; a given interest is kept as typed. Then the whole contract is
+ *    replayed like any other change to money after the payout (DES-016).
+ *  - CANCELLED: refused.
+ */
+export async function updateContract(
+  prisma: Db,
+  id: string,
+  actorId: string,
+  patch: { principal?: string; dueDate?: Date; interestAmount?: string },
+  now: Date = new Date(),
+) {
+  const today = bangkokToday(now);
+  if (patch.dueDate && patch.dueDate.getTime() <= today.getTime()) {
+    throw new DomainError(400, "DUE_DATE_NOT_FUTURE", "วันครบกำหนดต้องเป็นวันในอนาคต");
+  }
+  return withLedgerErrors(
+    () => undefined,
+    () =>
+      prisma.$transaction(async (tx) => {
+        if (!(await lockContract(tx, id))) throw notFound();
+        const before = await tx.contract.findUniqueOrThrow({ where: { id } });
+
+        if (before.status === "AWAITING_DISBURSEMENT") {
+          if (patch.interestAmount !== undefined) {
+            throw new DomainError(409, "NO_INTEREST_YET", "ดอกเบี้ยจะคำนวณตอนจ่ายเงิน ยังแก้ไขไม่ได้ในสถานะรอจ่ายเงิน");
+          }
+          const principal = patch.principal ?? before.principal;
+          const updated = await tx.contract.update({
+            where: { id },
+            data: {
+              principal,
+              outstandingPrincipal: principal,
+              ...(patch.dueDate ? { dueDate: patch.dueDate } : {}),
+            },
+          });
+          await writeAuditLog(tx, {
+            actorId,
+            action: "contract.update",
+            entityType: "Contract",
+            entityId: id,
+            before: contractAudit(before),
+            after: contractAudit(updated),
+            extra: { contractNo: before.contractNo, status: before.status },
+          });
+          return updated;
+        }
+
+        if (before.status !== "ACTIVE" && before.status !== "CLOSED") throw wrongState("สัญญา");
+        if (before.interestRatePctPerMonth === null || before.disbursedOn === null) {
+          throw new Error(`contract ${before.id} is ${before.status} but has no interest rate or payout date`);
+        }
+        const principal = patch.principal === undefined ? before.principal : new Prisma.Decimal(patch.principal);
+        const dueDate = patch.dueDate ?? before.dueDate;
+        const termsChanged = !principal.equals(before.principal) || dueDate.getTime() !== before.dueDate.getTime();
+
+        let interestAmount = before.interestAmount;
+        if (patch.interestAmount !== undefined) {
+          interestAmount = new Prisma.Decimal(patch.interestAmount);
+        } else if (termsChanged) {
+          try {
+            interestAmount = computeInterest({
+              principal,
+              ratePctPerMonth: before.interestRatePctPerMonth,
+              disbursedOn: before.disbursedOn,
+              dueDate,
+            }).interestAmount;
+          } catch (err) {
+            if (err instanceof InterestError && err.code === "INVALID_DAYS") {
+              throw new DomainError(400, "DUE_DATE_TOO_SOON", "วันครบกำหนดต้องอยู่หลังวันที่จ่ายเงินอย่างน้อย 1 วัน");
+            }
+            throw err;
+          }
+        }
+        if (!termsChanged && (interestAmount === null || interestAmount.equals(before.interestAmount ?? -1))) {
+          return before;
+        }
+
+        await tx.contract.update({ where: { id }, data: { principal, dueDate, interestAmount } });
+        // The payout always equals the principal.
+        await tx.disbursement.updateMany({ where: { contractId: id }, data: { amount: principal } });
+        const { contract } = await reconcileContract(tx, id, today);
+        await writeAuditLog(tx, {
+          actorId,
+          action: "contract.update",
+          entityType: "Contract",
+          entityId: id,
+          before: contractAudit(before),
+          after: contractAudit(contract),
+          extra: {
+            contractNo: before.contractNo,
+            status: before.status,
+            contractBefore: ledgerSnapshot(before),
+            contractAfter: ledgerSnapshot(contract),
+          },
+        });
+        return contract;
+      }),
+  );
 }

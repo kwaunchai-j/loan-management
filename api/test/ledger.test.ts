@@ -485,6 +485,112 @@ describe.skipIf(!dbUp)("payments, late fees, edits, deletes and queries (Postgre
   });
 
   // =====================================================================================
+  describe("editing a contract (ADMIN only)", () => {
+    const waiting = async (amount = "3000", dueIn = 30) => {
+      const created = await call("admin", "POST", "/admin/loan-requests", { borrowerId, amount, requestedDueDate: day(dueIn) });
+      const approved = await call("admin", "POST", `/admin/loan-requests/${(await created.json()).id}/approve`);
+      return (await approved.json()).contract.id as string;
+    };
+
+    it("changes principal and due date while the contract waits for the payout", async () => {
+      const contractId = await waiting();
+      const res = await call("admin", "PATCH", `/admin/contracts/${contractId}`, { principal: "4500.50", dueDate: day(45) });
+      expect(res.status).toBe(200);
+      expect((await res.json()).contract).toMatchObject({ principal: "4500.5", outstandingPrincipal: "4500.5", dueDate: day(45), status: "AWAITING_DISBURSEMENT" });
+      const [row] = await auditOf("Contract", contractId, "contract.update");
+      expect(row!.detail).toMatchObject({ before: { principal: "3000", dueDate: day(30) }, after: { principal: "4500.5", dueDate: day(45) } });
+    });
+
+    it("the payout then uses the edited terms", async () => {
+      const contractId = await waiting("3000", 30);
+      await call("admin", "PATCH", `/admin/contracts/${contractId}`, { principal: "6000" });
+      const res = await call("admin", "POST", `/admin/contracts/${contractId}/disbursement`, { paidOn: day(0), slipFileKey: await slip() });
+      expect(res.status).toBe(201);
+      expect((await res.json()).disbursement.amount).toBe("6000");
+      expect((await ledger(contractId)).state).toEqual(["6000.00", "180.00", "0.00"]); // 30 days at 3 %
+    });
+
+    it("moving the due date of an open contract recomputes its interest with the locked rate", async () => {
+      const { contractId } = await disbursed("3000", 30, 0); // 30 days at 3 % -> 90
+      await prisma.setting.update({ where: { id: 1 }, data: { interestRatePctPerMonth: "9" } });
+      const res = await call("admin", "PATCH", `/admin/contracts/${contractId}`, { dueDate: day(45) }); // 45 days -> 135
+      await prisma.setting.update({ where: { id: 1 }, data: { interestRatePctPerMonth: "3" } });
+      expect(res.status).toBe(200);
+      expect((await res.json()).contract).toMatchObject({ dueDate: day(45), interestAmount: "135", interestRatePctPerMonth: "3" });
+      expect((await ledger(contractId)).state).toEqual(["3000.00", "135.00", "0.00"]);
+      const [row] = await auditOf("Contract", contractId, "contract.update");
+      expect(row!.detail).toMatchObject({ before: { dueDate: day(30), interestAmount: "90" }, after: { dueDate: day(45), interestAmount: "135" } });
+    });
+
+    it("changing the principal of an open contract moves the payout and recomputes the interest", async () => {
+      const { contractId } = await disbursed("3000", 30, 0); // 30 days at 3 % -> 90
+      const res = await call("admin", "PATCH", `/admin/contracts/${contractId}`, { principal: "5000" }); // -> 150
+      expect(res.status).toBe(200);
+      expect((await res.json()).contract).toMatchObject({ principal: "5000", interestAmount: "150", totalDue: "5150" });
+      expect((await ledger(contractId)).state).toEqual(["5000.00", "150.00", "0.00"]);
+      const d = await prisma.disbursement.findFirstOrThrow({ where: { contractId } });
+      expect(d.amount.toString()).toBe("5000");
+    });
+
+    it("the interest can be typed in directly and is kept as typed", async () => {
+      const { contractId } = await disbursed("3000", 30, 0);
+      const res = await call("admin", "PATCH", `/admin/contracts/${contractId}`, { interestAmount: "75.50" });
+      expect(res.status).toBe(200);
+      expect((await res.json()).contract).toMatchObject({ principal: "3000", interestAmount: "75.5", totalDue: "3075.5" });
+      const zero = await call("admin", "PATCH", `/admin/contracts/${contractId}`, { interestAmount: "0" });
+      expect(zero.status).toBe(200);
+      expect((await ledger(contractId)).state).toEqual(["3000.00", "0.00", "0.00"]);
+      const [row] = await auditOf("Contract", contractId, "contract.update");
+      expect(row!.detail).toMatchObject({ before: { interestAmount: "90" } });
+    });
+
+    it("a typed interest wins over the recomputed one when the principal changes too", async () => {
+      const { contractId } = await disbursed("3000", 30, 0);
+      const res = await call("admin", "PATCH", `/admin/contracts/${contractId}`, { principal: "4000", interestAmount: "100" });
+      expect((await res.json()).contract).toMatchObject({ principal: "4000", interestAmount: "100", totalDue: "4100" });
+    });
+
+    it("a principal that no longer covers the payments already made is refused", async () => {
+      const { contractId } = await disbursed("3000", 30, 5);
+      expect((await call("admin", "POST", `/admin/contracts/${contractId}/payments`, { amount: "1000", paidOn: day(0) })).status).toBe(201);
+      const res = await call("admin", "PATCH", `/admin/contracts/${contractId}`, { principal: "100", interestAmount: "0" });
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect((await prisma.contract.findUniqueOrThrow({ where: { id: contractId } })).principal.toString()).toBe("3000");
+    });
+
+    it("refuses what is not allowed and changes nothing", async () => {
+      const { contractId } = await disbursed("3000", 30, 5);
+      expect((await call("admin", "PATCH", `/admin/contracts/${contractId}`, { dueDate: day(-5) })).status).toBe(400); // not in the future
+      expect((await call("admin", "PATCH", `/admin/contracts/${contractId}`, {})).status).toBe(400);
+      expect((await call("admin", "PATCH", `/admin/contracts/${contractId}`, { principal: "-5" })).status).toBe(400);
+      expect((await call("admin", "PATCH", `/admin/contracts/${contractId}`, { principal: "0" })).status).toBe(400);
+      expect((await call("admin", "PATCH", `/admin/contracts/${contractId}`, { interestAmount: "-1" })).status).toBe(400);
+      const c = await prisma.contract.findUniqueOrThrow({ where: { id: contractId } });
+      expect(c.dueDate).toEqual(new Date(`${day(30)}T00:00:00Z`));
+      expect(c.principal.toString()).toBe("3000");
+      expect(await auditOf("Contract", contractId, "contract.update")).toHaveLength(0);
+    });
+
+    it("a contract waiting for the payout has no interest to edit", async () => {
+      const contractId = await waiting();
+      const res = await call("admin", "PATCH", `/admin/contracts/${contractId}`, { interestAmount: "10" });
+      expect(res.status).toBe(409);
+      expect((await res.json()).error.code).toBe("NO_INTEREST_YET");
+    });
+
+    it("refuses a cancelled contract, and is for ADMIN only", async () => {
+      const contractId = await waiting();
+      expect((await call(null, "PATCH", `/admin/contracts/${contractId}`, { principal: "100" })).status).toBe(401);
+      expect((await call("borrower", "PATCH", `/admin/contracts/${contractId}`, { principal: "100" })).status).toBe(403);
+      expect((await call("admin", "PATCH", "/admin/contracts/nope", { principal: "100" })).status).toBe(404);
+      await call("admin", "POST", `/admin/contracts/${contractId}/cancel`);
+      expect((await call("admin", "PATCH", `/admin/contracts/${contractId}`, { principal: "100" })).status).toBe(409);
+      const c = await prisma.contract.findUniqueOrThrow({ where: { id: contractId } });
+      expect(c.principal.toString()).toBe("3000");
+    });
+  });
+
+  // =====================================================================================
   describe("editing and deleting a payout (T-305)", () => {
     it("moving the payout date recomputes the interest with the contract's own rate, not today's", async () => {
       const { contractId, disbursementId } = await disbursed("3000", 30, 0); // 30 days at 3 % -> 90

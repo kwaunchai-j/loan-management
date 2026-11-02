@@ -18,7 +18,9 @@ import {
   rejectRequest,
   requestSelect,
   requestView,
+  updateContract,
 } from "./service.js";
+import { contractMoneyView } from "./views.js";
 
 const createBody = z.object({ amount: moneyAmount, requestedDueDate: dateOnly });
 const adminCreateBody = createBody.extend({ borrowerId: idParam });
@@ -34,6 +36,14 @@ const disbursementBody = z.object({
   note: z.string().trim().min(1).max(500).optional(),
   amount: moneyAmount.optional(),
 });
+// interest may be 0 (unlike every other amount), so it has its own check
+const interestAmountInput = z
+  .union([z.string(), z.number()])
+  .transform((v) => String(v).trim())
+  .refine((s) => /^\d{1,12}(\.\d{1,2})?$/.test(s), { message: "ดอกเบี้ยต้องไม่ติดลบและมีทศนิยมไม่เกิน 2 ตำแหน่ง" });
+const updateContractBody = z
+  .object({ principal: moneyAmount.optional(), dueDate: dateOnly.optional(), interestAmount: interestAmountInput.optional() })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), { message: "ไม่มีข้อมูลที่ต้องแก้ไข" });
 const cancelContractBody = z.object({ reason: z.string().trim().min(1).max(500).optional() });
 const listQuery = z.object({
   status: z.enum(["PENDING", "APPROVED", "REJECTED", "CANCELLED"]).optional(),
@@ -188,6 +198,18 @@ export function createAdminContractsRouter(deps: {
 }): Router {
   const router = Router();
   router.use(deps.auth.authorize("ADMIN"));
+
+  router.patch(
+    "/:id",
+    asyncHandler(async (req, res) => {
+      const id = idParam.safeParse(req.params.id);
+      if (!id.success) return sendError(res, 404, "NOT_FOUND", "ไม่พบรายการ");
+      const body = updateContractBody.safeParse(req.body);
+      if (!body.success) return sendError(res, 400, "VALIDATION_ERROR", firstIssue(body.error));
+      const c = await updateContract(deps.prisma, id.data, req.user!.id, body.data);
+      res.status(200).json({ contract: contractMoneyView(c) });
+    }),
+  );
 
   router.post(
     "/:id/cancel",

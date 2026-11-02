@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { use, useState } from "react";
+import { ContractEdit } from "@/components/contract/ContractEdit";
 import { AccrualTable, DisbursementRecord, PaymentList } from "@/components/contract/History";
 import { DisbursementPanel } from "@/components/contract/DisbursementPanel";
 import { PaymentPanel } from "@/components/contract/PaymentPanel";
@@ -82,6 +83,7 @@ function Detail({ d, onChanged }: { d: AdminContractDetail; onChanged: (text: st
         </dl>
       </Card>
 
+      <ContractEdit key={`${c.principal}-${c.dueDate}`} contract={c} onChanged={onChanged} />
       {c.status === "ACTIVE" && <PendingClaimsAlert contractId={c.id} />}
       {c.status === "AWAITING_DISBURSEMENT" && <DisbursementPanel detail={d} onChanged={onChanged} />}
       {c.status === "ACTIVE" && <PaymentPanel detail={d} onChanged={onChanged} />}

@@ -479,3 +479,103 @@ describe("the payout record", () => {
     expect(screen.queryByRole("heading", { name: "การจ่ายเงินให้ผู้ยืม" })).not.toBeInTheDocument();
   });
 });
+
+describe("editing the contract (admin)", () => {
+  const edited = { contract: contractMoney({ dueDate: "2026-12-15" }) };
+
+  it("while waiting for the payout, principal and due date can be changed", async () => {
+    pinToday();
+    const calls = mockApi({
+      "GET /admin/contracts/c1": { body: awaitingDetail() },
+      "GET /admin/settings": { body: setRates },
+      "PATCH /admin/contracts/c1": { body: edited },
+    });
+    await renderPage(AdminContractPage, "c1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "แก้ไขสัญญา" }));
+    const principal = screen.getByLabelText("เงินต้น (บาท)");
+    await user.clear(principal);
+    await user.type(principal, "2500");
+    setDate("วันครบกำหนด", "2026-12-15");
+    await user.click(screen.getByRole("button", { name: "บันทึก" }));
+    expect(await screen.findByText("แก้ไขสัญญาแล้ว")).toBeInTheDocument();
+    expect(calls.find((c) => c.method === "PATCH")!.body).toEqual({ principal: "2500", dueDate: "2026-12-15" });
+  });
+
+  it("checks the entries before asking the server", async () => {
+    pinToday();
+    const calls = mockApi({ "GET /admin/contracts/c1": { body: awaitingDetail() }, "GET /admin/settings": { body: setRates } });
+    await renderPage(AdminContractPage, "c1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "แก้ไขสัญญา" }));
+    await user.clear(screen.getByLabelText("เงินต้น (บาท)"));
+    setDate("วันครบกำหนด", "2026-10-30");
+    await user.click(screen.getByRole("button", { name: "บันทึก" }));
+    expect(await screen.findByText("กรุณากรอกเงินต้น")).toBeInTheDocument();
+    expect(screen.getByText("วันครบกำหนดต้องเป็นวันในอนาคต")).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+  });
+
+  it("once the money is paid out, the interest can be corrected too and only changed fields are sent", async () => {
+    pinToday();
+    const calls = mockApi({ "GET /admin/contracts/c1": { body: adminDetail() }, ...noClaims, "PATCH /admin/contracts/c1": { body: edited } });
+    await renderPage(AdminContractPage, "c1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "แก้ไขสัญญา" }));
+    const principal = screen.getByLabelText("เงินต้น (บาท)");
+    await user.clear(principal);
+    await user.type(principal, "1200");
+    const interest = screen.getByLabelText("ดอกเบี้ย (บาท)");
+    await user.clear(interest);
+    await user.type(interest, "45.5");
+    await user.click(screen.getByRole("button", { name: "บันทึก" }));
+    expect(await screen.findByText("แก้ไขสัญญาแล้ว")).toBeInTheDocument();
+    expect(calls.find((c) => c.method === "PATCH")!.body).toEqual({ principal: "1200", interestAmount: "45.5" });
+  });
+
+  it("leaving the interest alone does not send it (the server recomputes it)", async () => {
+    pinToday();
+    const calls = mockApi({ "GET /admin/contracts/c1": { body: adminDetail() }, ...noClaims, "PATCH /admin/contracts/c1": { body: edited } });
+    await renderPage(AdminContractPage, "c1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "แก้ไขสัญญา" }));
+    const principal = screen.getByLabelText("เงินต้น (บาท)");
+    await user.clear(principal);
+    await user.type(principal, "1500");
+    await user.click(screen.getByRole("button", { name: "บันทึก" }));
+    await screen.findByText("แก้ไขสัญญาแล้ว");
+    expect(calls.find((c) => c.method === "PATCH")!.body).toEqual({ principal: "1500" });
+  });
+
+  it("a waiting contract has no interest field", async () => {
+    pinToday();
+    mockApi({ "GET /admin/contracts/c1": { body: awaitingDetail() }, "GET /admin/settings": { body: setRates } });
+    await renderPage(AdminContractPage, "c1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "แก้ไขสัญญา" }));
+    expect(screen.queryByLabelText("ดอกเบี้ย (บาท)")).not.toBeInTheDocument();
+  });
+
+  it("shows the API's refusal", async () => {
+    pinToday();
+    mockApi({
+      "GET /admin/contracts/c1": { body: adminDetail() },
+      ...noClaims,
+      "PATCH /admin/contracts/c1": apiError(409, "CONFLICTS_WITH_OTHER_PAYMENT", "การเปลี่ยนแปลงนี้ทำให้รายการรับชำระอื่นของสัญญานี้เกินยอดที่ติด จึงทำรายการไม่ได้"),
+    });
+    await renderPage(AdminContractPage, "c1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "แก้ไขสัญญา" }));
+    setDate("วันครบกำหนด", "2026-12-15");
+    await user.click(screen.getByRole("button", { name: "บันทึก" }));
+    expect(await screen.findByText(/เกินยอดที่ติด/)).toBeInTheDocument();
+  });
+
+  it("a cancelled contract has no edit button", async () => {
+    pinToday();
+    mockApi({ "GET /admin/contracts/c1": { body: adminDetail({ contract: { status: "CANCELLED" } }) } });
+    await renderPage(AdminContractPage, "c1");
+    await screen.findByText(/สัญญา LN-/);
+    expect(screen.queryByRole("button", { name: "แก้ไขสัญญา" })).not.toBeInTheDocument();
+  });
+});
