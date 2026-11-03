@@ -19,6 +19,7 @@ import type { SlipStorage } from "./lib/slip-storage.js";
 import { createAdminSlipsRouter, DEFAULT_SLIP_MAX_BYTES } from "./loans/slips.js";
 import { createAdminLedgerRouter } from "./loans/ledger-routes.js";
 import { createAdminCalendarRouter, createAdminSubmissionsRouter } from "./loans/submission-routes.js";
+import { createCalendarFeedRouter } from "./loans/calendar-feed.js";
 import { createAdminImportsRouter, DEFAULT_IMPORT_MAX_BYTES } from "./imports/routes.js";
 import type { ImportStorage } from "./imports/storage.js";
 import type { Notifier } from "./notifications/service.js";
@@ -101,7 +102,9 @@ export function buildApp(deps?: AppDeps): CreatedApp {
     );
     if (deps.cronSecret) app.use("/cron", createCronRouter({ prisma: deps.prisma, secret: deps.cronSecret, notifier: deps.notifier }));
     app.use("/admin/payment-submissions", createAdminSubmissionsRouter({ prisma: deps.prisma, auth }));
-    app.use("/admin/calendar", createAdminCalendarRouter({ prisma: deps.prisma, auth }));
+    app.use("/admin/calendar", createAdminCalendarRouter({ prisma: deps.prisma, auth, sessionSecret: deps.sessionSecret }));
+    // public on purpose: Google / iCloud Calendar fetch it without a login; the secret link is the credential
+    app.use("/calendar", createCalendarFeedRouter({ prisma: deps.prisma, sessionSecret: deps.sessionSecret }));
     app.use("/admin/reports", createAdminReportsRouter({ prisma: deps.prisma, auth }));
     app.use("/pdpa", createPdpaRouter({ prisma: deps.prisma, auth }));
     app.use(

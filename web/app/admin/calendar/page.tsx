@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarLink } from "@/components/calendar/CalendarLink";
 import { CalendarView } from "@/components/calendar/CalendarView";
 import { PageTitle } from "@/components/ui";
 
@@ -10,6 +11,7 @@ export default function CalendarPage() {
       <PageTitle>ปฏิทิน</PageTitle>
       <p className="text-slate-700">สัญญาแต่ละฉบับอยู่ในวันครบกำหนดของมัน และรายการรับชำระอยู่ในวันที่รับเงิน กดที่วันเพื่อดูรายละเอียด</p>
       <CalendarView />
+      <CalendarLink />
     </>
   );
 }

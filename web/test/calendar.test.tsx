@@ -10,6 +10,8 @@ function pinToday() {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW); // 30 Oct 2026 in Thailand
 }
+// the page also offers the subscription link; every test plans for that call
+const FEED = { "GET /admin/calendar/feed-link": { body: { path: "/calendar/feed/u1.sig.ics" } } };
 const lastPath = (calls: Array<{ path: string }>) => calls[calls.length - 1]!.path;
 
 describe("calendar layout helpers", () => {
@@ -65,7 +67,7 @@ describe("calendar page", () => {
 
   it("opens on the current month with today selected, asking the API for that month", async () => {
     pinToday();
-    const calls = mockApi({ "GET /admin/calendar": { body: october() } });
+    const calls = mockApi({ ...FEED, "GET /admin/calendar": { body: october() } });
     render(<CalendarPage />);
     expect(await screen.findByRole("heading", { name: "ตุลาคม 2569" })).toBeInTheDocument();
     expect(calls[0]!.path).toBe("/admin/calendar?month=2026-10");
@@ -76,7 +78,7 @@ describe("calendar page", () => {
 
   it("puts what is due on its day and what was paid on its day, with a plain-words label for each cell", async () => {
     pinToday();
-    mockApi({ "GET /admin/calendar": { body: october() } });
+    mockApi({ ...FEED, "GET /admin/calendar": { body: october() } });
     render(<CalendarPage />);
     await screen.findByRole("heading", { name: "30 ตุลาคม 2569" });
     expect(screen.getByRole("button", { name: "30 ตุลาคม 2569 ครบกำหนด 2 สัญญา รับชำระ 1 รายการ" })).toBeInTheDocument();
@@ -89,7 +91,7 @@ describe("calendar page", () => {
 
   it("shows the contracts due on the chosen day with what is still owed, taken from the API as it is", async () => {
     pinToday();
-    mockApi({ "GET /admin/calendar": { body: october() } });
+    mockApi({ ...FEED, "GET /admin/calendar": { body: october() } });
     render(<CalendarPage />);
     await screen.findByRole("heading", { name: "30 ตุลาคม 2569" });
     const due = screen.getByRole("region", { name: "ครบกำหนดชำระ" });
@@ -105,7 +107,7 @@ describe("calendar page", () => {
 
   it("opens another day when it is pressed, and flags a day that is overdue", async () => {
     pinToday();
-    mockApi({ "GET /admin/calendar": { body: october() } });
+    mockApi({ ...FEED, "GET /admin/calendar": { body: october() } });
     render(<CalendarPage />);
     await screen.findByRole("heading", { name: "30 ตุลาคม 2569" });
     await userEvent.setup().click(screen.getByRole("button", { name: /^12 ตุลาคม 2569/ }));
@@ -124,7 +126,7 @@ describe("calendar page", () => {
       calendarDay("2026-10-31", { due: [dueItem({ contractId: "c2", contractNo: "LN-2" })] }),
       calendarDay("2026-10-08", { due: [dueItem({ contractId: "c3", contractNo: "LN-3", status: "CLOSED", totalDue: "0" })] }),
     ]);
-    mockApi({ "GET /admin/calendar": { body: cal } });
+    mockApi({ ...FEED, "GET /admin/calendar": { body: cal } });
     render(<CalendarPage />);
     await screen.findByRole("heading", { name: "30 ตุลาคม 2569" });
     const pill = (name: RegExp) => within(screen.getByRole("button", { name })).getByText(/ครบ 1/);
@@ -135,7 +137,7 @@ describe("calendar page", () => {
 
   it("says so when the chosen day has nothing on it", async () => {
     pinToday();
-    mockApi({ "GET /admin/calendar": { body: october() } });
+    mockApi({ ...FEED, "GET /admin/calendar": { body: october() } });
     render(<CalendarPage />);
     await screen.findByRole("heading", { name: "30 ตุลาคม 2569" });
     await userEvent.setup().click(screen.getByRole("button", { name: /^7 ตุลาคม 2569/ }));
@@ -144,7 +146,7 @@ describe("calendar page", () => {
 
   it("moves to the next and previous month (also across the year), asking the API each time", async () => {
     pinToday();
-    const calls = mockApi({ "GET /admin/calendar": () => ({ body: calendarOf("2026-10", []) }) });
+    const calls = mockApi({ ...FEED, "GET /admin/calendar": () => ({ body: calendarOf("2026-10", []) }) });
     render(<CalendarPage />);
     await screen.findByRole("heading", { name: "ตุลาคม 2569" });
     const user = userEvent.setup();
@@ -162,7 +164,7 @@ describe("calendar page", () => {
 
   it("another month starts with no day chosen, and 'back to this month' returns with today chosen", async () => {
     pinToday();
-    mockApi({ "GET /admin/calendar": () => ({ body: calendarOf("2026-10", []) }) });
+    mockApi({ ...FEED, "GET /admin/calendar": () => ({ body: calendarOf("2026-10", []) }) });
     render(<CalendarPage />);
     await screen.findByRole("heading", { name: "30 ตุลาคม 2569" });
     const user = userEvent.setup();
@@ -175,7 +177,7 @@ describe("calendar page", () => {
 
   it("starts the first of the month on the right weekday column", async () => {
     pinToday();
-    mockApi({ "GET /admin/calendar": { body: october() } });
+    mockApi({ ...FEED, "GET /admin/calendar": { body: october() } });
     render(<CalendarPage />);
     await screen.findByRole("heading", { name: "30 ตุลาคม 2569" });
     const cells = screen.getByRole("group", { name: "ปฏิทิน ตุลาคม 2569" }).querySelectorAll(":scope > div:last-child > *");
@@ -185,11 +187,11 @@ describe("calendar page", () => {
 
   it("warns when the month had too much to show, and shows the API's message on failure", async () => {
     pinToday();
-    mockApi({ "GET /admin/calendar": { body: calendarOf("2026-10", [], { truncated: true }) } });
+    mockApi({ ...FEED, "GET /admin/calendar": { body: calendarOf("2026-10", [], { truncated: true }) } });
     const first = render(<CalendarPage />);
     expect(await screen.findByText(/แสดงไม่ครบ/)).toBeInTheDocument();
     first.unmount();
-    mockApi({ "GET /admin/calendar": apiError(500, "INTERNAL", "ระบบขัดข้อง") });
+    mockApi({ ...FEED, "GET /admin/calendar": apiError(500, "INTERNAL", "ระบบขัดข้อง") });
     render(<CalendarPage />);
     expect(await screen.findByText("ระบบขัดข้อง")).toBeInTheDocument();
   });

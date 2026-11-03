@@ -48,3 +48,31 @@ export function monthLabel(month: string): string {
 export function longDay(day: string): string {
   return new Date(`${day}T00:00:00.000Z`).toLocaleDateString("th-TH", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" });
 }
+
+/**
+ * The ways to hand the due-date feed to a calendar app. `path` is what the API returned (relative to the API);
+ * the app's own origin plus /api makes it reachable from outside. Google and Apple/iCloud both subscribe by URL:
+ * Google by "add by URL", Apple by the webcal:// scheme, which opens Calendar on iPhone/Mac.
+ */
+export function feedLinks(origin: string, path: string) {
+  const https = `${origin}/api${path}`;
+  const webcal = https.replace(/^https?:/, "webcal:");
+  return {
+    https,
+    webcal,
+    google: `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`,
+    /** Google and iCloud servers fetch the feed themselves, so an address only this computer can reach cannot work. */
+    reachable: !isPrivateHost(new URL(origin).hostname),
+  };
+}
+
+export function isPrivateHost(host: string): boolean {
+  return (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    !host.includes(".") ||
+    /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) ||
+    host === "[::1]"
+  );
+}

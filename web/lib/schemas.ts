@@ -551,3 +551,6 @@ export const calendarSchema = z.object({
   days: z.array(calendarDaySchema),
 });
 export type Calendar = z.infer<typeof calendarSchema>;
+
+/** api/src/loans/calendar-feed.ts — GET /admin/calendar/feed-link: the private subscription path, relative to the API. */
+export const calendarFeedLinkSchema = z.object({ path: z.string().startsWith("/calendar/feed/") });

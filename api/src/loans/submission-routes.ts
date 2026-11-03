@@ -6,6 +6,7 @@ import { asyncHandler, DomainError, sendError } from "../http.js";
 import { bangkokToday } from "../lib/dates.js";
 import { dateOnly, idParam, moneyAmount } from "../lib/schemas.js";
 import { monthCalendar } from "./calendar.js";
+import { calendarFeedToken } from "./calendar-feed.js";
 import { contractMoneyView, paymentView } from "./views.js";
 import { confirmSubmission, listSubmissions, rejectSubmission } from "./submissions.js";
 
@@ -70,9 +71,20 @@ export function createAdminSubmissionsRouter(deps: { prisma: Db; auth: AuthMiddl
 }
 
 /** ADMIN: the month calendar (what is due and what was paid, per day). Mounted at /admin/calendar. */
-export function createAdminCalendarRouter(deps: { prisma: Db; auth: AuthMiddleware }): Router {
+export function createAdminCalendarRouter(deps: { prisma: Db; auth: AuthMiddleware; sessionSecret: string }): Router {
   const router = Router();
   router.use(deps.auth.authorize("ADMIN"));
+
+  // The private subscription link for Google / iCloud Calendar (see calendar-feed.ts). The path is relative to the
+  // API; the web app puts its own origin and /api in front of it.
+  router.get(
+    "/feed-link",
+    asyncHandler(async (req, res) => {
+      const user = await deps.prisma.user.findUniqueOrThrow({ where: { id: req.user!.id }, select: { id: true, passwordHash: true } });
+      res.status(200).set("cache-control", "no-store").json({ path: `/calendar/feed/${calendarFeedToken(user, deps.sessionSecret)}.ics` });
+    }),
+  );
+
   router.get(
     "/",
     asyncHandler(async (req, res) => {
