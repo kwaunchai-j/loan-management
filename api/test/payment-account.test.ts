@@ -64,11 +64,13 @@ describe.skipIf(!dbUp)("the lender's payment account (PostgreSQL)", () => {
     });
     await clearRow();
     await prisma.auditLog.deleteMany({ where: { actorId: { in: userIds } } });
+    await prisma.rateChange.deleteMany({ where: { changedById: { in: userIds } } });
   });
 
   afterAll(async () => {
     await new Promise<void>((r) => server.close(() => r()));
     await prisma.auditLog.deleteMany({ where: { actorId: { in: userIds } } });
+    await prisma.rateChange.deleteMany({ where: { changedById: { in: userIds } } });
     await prisma.borrower.deleteMany({ where: { id: { in: borrowerIds } } });
     await prisma.setting.deleteMany({ where: { id: 1 } });
     if (original) {

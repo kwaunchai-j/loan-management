@@ -6,9 +6,10 @@ import { InterestEstimate } from "@/components/InterestEstimate";
 import { PaymentAccountButton } from "@/components/PaymentAccountModal";
 import { RequestStatusBadge } from "@/components/status";
 import { Alert, Button, Card, PageTitle, Spinner, TextField } from "@/components/ui";
-import { apiFetch, errorMessage } from "@/lib/api";
+import { ApiError, apiFetch, errorMessage } from "@/lib/api";
 import { checkDate, checkMoney, formatBaht, formatDay, todayBangkok } from "@/lib/money";
 import { myRequestListSchema, requestSchema, type MyRequest } from "@/lib/schemas";
+import { useRateNotice } from "@/lib/rate-notice-store";
 import { useApi } from "@/lib/use-api";
 
 export default function RequestPage() {
@@ -60,10 +61,14 @@ function RequestForm({ onCreated }: { onCreated: () => void }) {
   const [apiError, setApiError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const today = todayBangkok();
+  // the lender adjusted a rate: the borrower must acknowledge it (the dialog in the layout) before a new request can be sent
+  const { notice, show, load } = useRateNotice();
+  const mustAcknowledge = notice?.required === true;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setApiError(null);
+    if (mustAcknowledge) return show();
     const found = {
       amount: checkMoney(amount) ?? undefined,
       dueDate: checkDate(dueDate, "วันครบกำหนด") ?? (dueDate <= today ? "วันครบกำหนดต้องเป็นวันในอนาคต" : undefined),
@@ -82,6 +87,8 @@ function RequestForm({ onCreated }: { onCreated: () => void }) {
       onCreated();
     } catch (err) {
       setApiError(errorMessage(err));
+      // the lender adjusted a rate after this page was opened: ask again, and the dialog comes up
+      if (err instanceof ApiError && err.code === "RATE_NOTICE_REQUIRED") void load();
     } finally {
       setBusy(false);
     }
@@ -90,6 +97,14 @@ function RequestForm({ onCreated }: { onCreated: () => void }) {
   return (
     <Card title="ส่งคำขอใหม่">
       <form onSubmit={(e) => void submit(e)} className="space-y-4" noValidate>
+        {mustAcknowledge && (
+          <Alert kind="warning">
+            ผู้ให้กู้ปรับอัตราดอกเบี้ยหรือค่าปรับ กรุณารับทราบอัตราใหม่ก่อนส่งคำขอ{" "}
+            <button type="button" onClick={show} className="font-medium underline">
+              ดูอัตราใหม่และกดรับทราบ
+            </button>
+          </Alert>
+        )}
         {apiError && <Alert kind="error">{apiError}</Alert>}
         <TextField
           label="จำนวนเงินที่ต้องการยืม (บาท)"
@@ -110,7 +125,7 @@ function RequestForm({ onCreated }: { onCreated: () => void }) {
           hint="ต้องเป็นวันหลังจากวันนี้ ถ้าคืนช้ากว่าวันที่เลือก จะมีค่าปรับรายวัน"
           onChange={(e) => setDueDate(e.target.value)}
         />
-        <Button type="submit" className="w-full sm:w-auto" disabled={busy}>
+        <Button type="submit" className="w-full sm:w-auto" disabled={busy || mustAcknowledge}>
           {busy ? "กำลังส่ง..." : "ส่งคำขอ"}
         </Button>
       </form>

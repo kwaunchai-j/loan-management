@@ -5,6 +5,7 @@ import type { Db } from "../db.js";
 import type { AuthMiddleware } from "../auth/middleware.js";
 import { asyncHandler, sendError } from "../http.js";
 import { writeAuditLog } from "../lib/audit.js";
+import { recordRateChange } from "../lib/rate-notice.js";
 import { SETTING_ID } from "../lib/rates.js";
 
 /**
@@ -100,6 +101,8 @@ export function createAdminSettingsRouter(deps: { prisma: Db; auth: AuthMiddlewa
           before: ratesOf(before),
           after: ratesOf(after),
         });
+        // borrowers must acknowledge an adjustment before they can borrow again (CR-9)
+        await recordRateChange(tx, ratesOf(before), ratesOf(after), actorId);
         return after;
       });
       res.status(200).json(view(updated));

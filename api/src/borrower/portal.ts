@@ -17,6 +17,7 @@ import {
 } from "../lib/borrower-fields.js";
 import { detectSlipType, newSlipKey } from "../lib/slip-storage.js";
 import { writeAuditLog } from "../lib/audit.js";
+import { acknowledgeRateNotice, getRateNotice } from "../lib/rate-notice.js";
 import { dateOnly, idParam, moneyAmount } from "../lib/schemas.js";
 import type { SlipStorage } from "../lib/slip-storage.js";
 import { getAgreement } from "../loans/agreement.js";
@@ -34,7 +35,8 @@ import { z } from "zod";
  * What a borrower is told about where to pay: the lender's own account (GET /payment-account, CR-4).
  *
  * Deliberately NOT shown to a borrower: transfer slips and who recorded what, the reason a request
- * was rejected, admin notes on payments, interest/late-fee rates, import flags, any other borrower.
+ * was rejected, admin notes on payments, import flags, any other borrower. The interest and late-fee rates are shown only
+ * in the agreement of the borrower's own request and in the notice of a rate adjustment (CR-9, below).
  * Before the money is paid out a contract shows no amount owed at all.
  */
 const LIST_LIMIT = 500;
@@ -61,6 +63,8 @@ const profileBody = z
     fullName: z.string().max(200).optional(),
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), "ไม่มีข้อมูลที่ต้องแก้ไข");
+
+const ackBody = z.object({ seq: z.number().int().min(1).max(2147483647) });
 
 export function createBorrowerPortalRouter(deps: {
   prisma: Db;
@@ -259,6 +263,27 @@ export function createBorrowerPortalRouter(deps: {
     }),
   );
 
+
+  // The lender adjusted the interest or late-fee rate (CR-9): what the borrower has yet to acknowledge. Until they do, filing a
+  // new request is refused (409 RATE_NOTICE_REQUIRED); everything else stays open to them.
+  router.get(
+    "/rate-notice",
+    asyncHandler(async (req, res) => {
+      res.status(200).json(await getRateNotice(prisma, sessionBorrowerId(req)));
+    }),
+  );
+
+  // "I acknowledge": `seq` is the adjustment the notice showed. The answer is the notice that is left (a newer adjustment, if any).
+  router.post(
+    "/rate-notice/acknowledge",
+    asyncHandler(async (req, res) => {
+      const body = ackBody.safeParse(req.body);
+      if (!body.success) return sendError(res, 400, "VALIDATION_ERROR", "ข้อมูลไม่ถูกต้อง");
+      res.status(200).json(
+        await acknowledgeRateNotice(prisma, { borrowerId: sessionBorrowerId(req), actorId: req.user!.id, seq: body.data.seq }),
+      );
+    }),
+  );
 
   router.get(
     "/loan-requests",

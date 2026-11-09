@@ -78,6 +78,7 @@ model User {
   pushSubscriptions  PushSubscription[]
   auditLogs          AuditLog[]
   settingsUpdated    Setting[]
+  rateChanges        RateChange[]
 }
 
 model Borrower {
@@ -96,6 +97,10 @@ model Borrower {
   realNameConfirmedAt DateTime?
   pdpaAcceptedAt DateTime?
   pdpaVersion    String?
+  // The last RateChange.seq this borrower acknowledged (0 = none). While a later change that matters to them exists,
+  // they must acknowledge it before filing a new loan request.
+  rateNoticeAckSeq Int     @default(0)
+  rateNoticeAckAt  DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -120,6 +125,23 @@ model Setting {
   updatedAt                DateTime @updatedAt
 
   updatedBy                User?    @relation(fields: [updatedById], references: [id])
+}
+
+/// One adjustment of the interest rate and/or the late-fee rate by an ADMIN (written with the Setting update).
+/// Borrowers are shown it in a notice and must acknowledge it before they can borrow again (`Borrower.rateNoticeAckSeq`).
+/// `seq` only ever grows, so "everything after what I acknowledged" is a plain comparison.
+model RateChange {
+  seq                          Int      @id @default(autoincrement())
+  prevInterestRatePctPerMonth  Decimal? @db.Decimal(7, 4)
+  prevLateFeeRatePctPerDay     Decimal? @db.Decimal(7, 4)
+  interestRatePctPerMonth      Decimal? @db.Decimal(7, 4)
+  lateFeeRatePctPerDay         Decimal? @db.Decimal(7, 4)
+  changedById                  String?
+  createdAt                    DateTime @default(now())
+
+  changedBy                    User?    @relation(fields: [changedById], references: [id])
+
+  @@index([createdAt])
 }
 
 model LoanRequest {

@@ -10,6 +10,7 @@ import { dateOnly, idParam, moneyAmount } from "../lib/schemas.js";
 import { getAgreement } from "./agreement.js";
 import { disbursementView, recordDisbursement } from "./disbursement.js";
 import { estimateInterest } from "./interest-estimate.js";
+import { assertRateNoticeAcknowledged } from "../lib/rate-notice.js";
 import type { SlipStorage } from "../lib/slip-storage.js";
 import {
   approveRequest,
@@ -82,6 +83,9 @@ export function createBorrowerLoanRequestsRouter(deps: {
     asyncHandler(async (req, res) => {
       const body = createBody.safeParse(req.body);
       if (!body.success) return sendError(res, 400, "VALIDATION_ERROR", firstIssue(body.error));
+      // the lender adjusted the interest or late-fee rate: the borrower must acknowledge it before borrowing again (CR-9).
+      // Only a borrower's own request is held up; the lender filing one on someone's behalf is not.
+      await assertRateNoticeAcknowledged(deps.prisma, sessionBorrowerId(req));
       const row = await createRequest(deps.prisma, {
         borrowerId: sessionBorrowerId(req),
         amount: body.data.amount,

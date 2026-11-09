@@ -72,6 +72,20 @@ export const paymentAccountSchema = z.object({
 });
 export type PaymentAccount = z.infer<typeof paymentAccountSchema>;
 
+/**
+ * api/src/lib/rate-notice.ts — GET /me/rate-notice and POST /me/rate-notice/acknowledge (CR-9): the lender adjusted the
+ * interest or late-fee rate; `required` stays true until the borrower acknowledges it. A null move = that rate was not adjusted.
+ */
+const rateMoveSchema = z.object({ from: z.string(), to: z.string() }).nullable();
+export const rateNoticeSchema = z.object({
+  required: z.boolean(),
+  seq: z.number().int().nullable(),
+  interestRatePctPerMonth: rateMoveSchema,
+  lateFeeRatePctPerDay: rateMoveSchema,
+  changedAt: z.string().nullable(),
+});
+export type RateNotice = z.infer<typeof rateNoticeSchema>;
+
 /** api/src/admin/payment-account.ts — GET/PUT /admin/payment-account */
 export const adminPaymentAccountSchema = z.object({
   bankName: z.string().nullable(),

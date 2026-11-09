@@ -127,6 +127,7 @@ describe.skipIf(!dbUp)("admin settings (PostgreSQL)", () => {
   afterAll(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await prisma.auditLog.deleteMany({ where: { actorId: adminId } });
+    await prisma.rateChange.deleteMany({ where: { changedById: adminId } });
     await clearRow();
     if (original) {
       await prisma.setting.create({
@@ -206,6 +207,7 @@ describe.skipIf(!dbUp)("admin settings (PostgreSQL)", () => {
 
   it("changes one rate and leaves the other, with a before/after audit row", async () => {
     await prisma.auditLog.deleteMany({ where: { actorId: adminId } });
+    await prisma.rateChange.deleteMany({ where: { changedById: adminId } });
     const res = await patch({ interestRatePctPerMonth: 3 });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ interestRatePctPerMonth: "3", lateFeeRatePctPerDay: "0.1234" });
@@ -244,6 +246,7 @@ describe.skipIf(!dbUp)("admin settings (PostgreSQL)", () => {
       { unknownField: "1" },
     ];
     await prisma.auditLog.deleteMany({ where: { actorId: adminId } });
+    await prisma.rateChange.deleteMany({ where: { changedById: adminId } });
     for (const body of bad) {
       const res = await patch(body);
       expect(res.status, JSON.stringify(body)).toBe(400);
