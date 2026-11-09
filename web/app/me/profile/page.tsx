@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { IdentityForm } from "@/components/IdentityForm";
 import { Alert, Badge, Button, Card, Item, PageTitle, Spinner, TextField } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/api";
 import { profileSchema, type Profile } from "@/lib/schemas";
@@ -11,16 +12,24 @@ import { useApi } from "@/lib/use-api";
 import { checkBankAccount, checkBankName, checkPhone } from "@/lib/validation";
 
 /**
- * "ข้อมูลของฉัน": the borrower fills in their own phone number, bank and account number (CR-5). The lender creates
- * the account with the name only, and may clear these later (CR-6); until all three are filled in this is the only page
- * the borrower can open, because the lender has to be able to reach them and to know where to send the money.
- * The name is shown but only the lender changes it.
+ * "ข้อมูลของฉัน": the borrower fills in their own phone number, bank and account number (CR-5) and proves who they are:
+ * real name, national ID number and a photo of the ID card (CR-8). The lender creates the account with the name only, and
+ * may clear these later (CR-6); until everything is filled in this is the only page the borrower can open, because the
+ * lender has to know who they are, be able to reach them and know where to send the money.
+ * The name can be stated once; afterwards only the lender changes it.
  */
 export default function ProfilePage() {
   const router = useRouter();
   const profile = useApi("/me/profile", profileSchema);
   const [saved, setSaved] = useState<string | null>(null);
   const forced = profile.data ? !profile.data.profileComplete : false;
+  async function afterSave(text: string) {
+    setSaved(text);
+    profile.reload();
+    // the session now says whether the details are complete: a borrower who was held on this page goes on to the system
+    await useSession.getState().load();
+    if (forced && useSession.getState().user?.profileComplete === true) router.replace("/me");
+  }
   return (
     <>
       <PageTitle>ข้อมูลของฉัน</PageTitle>
@@ -29,8 +38,8 @@ export default function ProfilePage() {
       {saved && <Alert kind="success">{saved}</Alert>}
       {forced && (
         <Alert kind="warning">
-          <p className="font-medium">กรุณากรอกเบอร์โทรศัพท์ ธนาคาร และเลขบัญชีของคุณให้ครบก่อน จึงจะใช้งานระบบต่อได้</p>
-          <p>ผู้ให้กู้ต้องใช้ข้อมูลนี้เพื่อติดต่อคุณและโอนเงินให้</p>
+          <p className="font-medium">กรุณากรอกข้อมูลของคุณให้ครบก่อน จึงจะใช้งานระบบต่อได้</p>
+          <p>ต้องยืนยันชื่อจริง กรอกเลขบัตรประชาชนและส่งรูปบัตร รวมถึงเบอร์โทรศัพท์ ธนาคาร และเลขบัญชี ผู้ให้กู้ต้องใช้ข้อมูลนี้เพื่อทำสัญญา ติดต่อคุณ และโอนเงินให้</p>
         </Alert>
       )}
       {profile.data && (
@@ -40,7 +49,24 @@ export default function ProfilePage() {
               <Item label="ชื่อ-นามสกุล" value={profile.data.fullName} />
               <Item label="ชื่อผู้ใช้" value={profile.data.username ?? "-"} />
             </dl>
-            <p className="mt-3 text-sm text-slate-600">ถ้าชื่อไม่ถูกต้อง กรุณาแจ้งผู้ให้กู้ให้แก้ให้</p>
+          </Card>
+          <Card title="ยืนยันตัวตน">
+            <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-800">
+              {profile.data.realNameConfirmed && profile.data.nationalId && profile.data.hasIdCard ? (
+                <Badge tone="green">ยืนยันตัวตนครบแล้ว</Badge>
+              ) : (
+                <>
+                  <Badge tone="amber">ยังยืนยันตัวตนไม่ครบ</Badge>
+                  ต้องยืนยันชื่อจริง กรอกเลขบัตรประชาชน และส่งรูปบัตร
+                </>
+              )}
+            </p>
+            <IdentityForm
+              key={`${profile.data.fullName}|${profile.data.realNameConfirmed}|${profile.data.nationalId}|${profile.data.hasIdCard}`}
+              current={profile.data}
+              onSaved={afterSave}
+              onSubmitting={() => setSaved(null)}
+            />
           </Card>
           <Card title="เบอร์โทรศัพท์และบัญชีรับเงิน">
             <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-800">
@@ -50,19 +76,13 @@ export default function ProfilePage() {
                   ไปหน้าหลัก
                 </Link>
               ) : (
-                "ต้องกรอกทั้ง 3 ช่องก่อนจึงจะใช้งานระบบต่อได้"
+                "ต้องกรอกทั้ง 3 ช่องนี้ และยืนยันตัวตนด้านบน จึงจะใช้งานระบบต่อได้"
               )}
             </p>
             <ProfileForm
               key={`${profile.data.phone}|${profile.data.bankName}|${profile.data.bankAccountNo}`}
               current={profile.data}
-              onSaved={async (text) => {
-                setSaved(text);
-                profile.reload();
-                // the session now says the details are complete: a borrower who was held on this page goes on to the system
-                await useSession.getState().load();
-                if (forced && useSession.getState().user?.profileComplete === true) router.replace("/me");
-              }}
+              onSaved={afterSave}
               onSubmitting={() => setSaved(null)}
             />
           </Card>

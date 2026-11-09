@@ -43,7 +43,7 @@ export function toAuditJson(value: unknown): Prisma.InputJsonValue | null {
     if (key === "") return v;
     if (SECRET_KEY.test(key)) return REDACTED;
     // Bank account numbers are kept only as "****1234" (decision D1), whoever the caller is.
-    if (key === "bankAccountNo" && typeof v === "string") return maskAccountNumber(v);
+    if ((key === "bankAccountNo" || key === "nationalId") && typeof v === "string") return maskAccountNumber(v);
     return v;
   });
   if (text === undefined) return null;

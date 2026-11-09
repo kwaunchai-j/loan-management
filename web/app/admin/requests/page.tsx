@@ -145,13 +145,16 @@ function RequestItem({ r, onDone, onError }: { r: LoanRequest; onDone: (text: st
         ขอคืนวันที่ {formatDay(r.requestedDueDate)} · ยื่นเมื่อ {formatDateTime(r.createdAt)}
       </p>
       {r.status === "REJECTED" && r.rejectReason && <p className="mt-1 text-sm text-red-800">เหตุผล: {r.rejectReason}</p>}
-      {r.contract && (
-        <p className="mt-1 text-sm">
+      <p className="mt-1 flex flex-wrap gap-x-4 text-sm">
+        <Link href={`/admin/requests/${encodeURIComponent(r.id)}/agreement`} className="font-medium text-teal-800 underline">
+          สัญญาเงินกู้
+        </Link>
+        {r.contract && (
           <Link href={`/admin/contracts/${encodeURIComponent(r.contract.id)}`} className="font-medium text-teal-800 underline">
             สัญญา {r.contract.contractNo}
           </Link>
-        </p>
-      )}
+        )}
+      </p>
 
       {r.status === "PENDING" && mode === "idle" && (
         <div className="mt-3 flex flex-wrap gap-2">

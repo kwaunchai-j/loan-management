@@ -113,6 +113,7 @@ export function buildApp(deps?: AppDeps): CreatedApp {
         prisma: deps.prisma,
         auth,
         cipher,
+        storage: deps.slipStorage,
       }),
     );
     app.use("/admin/settings", createAdminSettingsRouter({ prisma: deps.prisma, auth }));

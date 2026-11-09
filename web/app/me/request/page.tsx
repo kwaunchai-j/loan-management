@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { InterestEstimate } from "@/components/InterestEstimate";
 import { PaymentAccountButton } from "@/components/PaymentAccountModal";
@@ -23,7 +24,7 @@ export default function RequestPage() {
       {notice && <Alert kind={notice.kind}>{notice.text}</Alert>}
       <RequestForm
         onCreated={() => {
-          setNotice({ kind: "success", text: "ส่งคำขอเรียบร้อยแล้ว ผู้ให้กู้จะพิจารณา" });
+          setNotice({ kind: "success", text: "ส่งคำขอเรียบร้อยแล้ว ระบบสร้างสัญญาเงินกู้ให้แล้ว ดูได้ที่ “คำขอของฉัน” ผู้ให้กู้จะพิจารณา" });
           list.reload();
         }}
       />
@@ -143,6 +144,11 @@ function RequestRow({ r, onChanged, onError }: { r: MyRequest; onChanged: (text:
       </div>
       <p className="text-sm text-slate-700">ขอคืนวันที่ {formatDay(r.requestedDueDate)}</p>
       {r.status === "APPROVED" && r.contract && <p className="text-sm text-slate-700">สัญญาเลขที่ {r.contract.contractNo}</p>}
+      <p className="mt-1 text-sm">
+        <Link href={`/me/request/${encodeURIComponent(r.id)}/agreement`} className="font-medium text-teal-800 underline">
+          ดูสัญญาเงินกู้
+        </Link>
+      </p>
       {r.status === "PENDING" &&
         (confirming ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">

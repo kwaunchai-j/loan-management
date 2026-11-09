@@ -75,6 +75,12 @@ export default function NewRequestPage() {
         <Alert kind="success">
           สร้างคำขอ {formatBaht(done.request.amount)} บาทให้ {done.request.borrower.fullName} เรียบร้อยแล้ว
         </Alert>
+        <Alert kind="success">
+          สร้างสัญญาเงินกู้แล้ว{" "}
+          <Link href={`/admin/requests/${encodeURIComponent(done.request.id)}/agreement`} className="font-medium underline">
+            เปิดดู / พิมพ์สัญญา
+          </Link>
+        </Alert>
         {done.approved && done.request.contract && (
           <Alert kind="success">
             อนุมัติแล้ว สร้างสัญญา{" "}

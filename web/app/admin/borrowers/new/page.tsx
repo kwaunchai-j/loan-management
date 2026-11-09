@@ -8,7 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { borrowerSchema, type Borrower } from "@/lib/schemas";
 import { checkPassword, checkUsername, generatePassword } from "@/lib/validation";
 
-const EMPTY: BorrowerFields = { fullName: "", phone: "", bankName: "", bankAccountNo: "" };
+const EMPTY: BorrowerFields = { fullName: "", phone: "", bankName: "", bankAccountNo: "", nationalId: "" };
 
 export default function NewBorrowerPage() {
   const [username, setUsername] = useState("");

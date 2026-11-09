@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { use, useState } from "react";
+import { AdminIdentityPanel } from "@/components/AdminIdentityPanel";
 import { BorrowerForm } from "@/components/BorrowerForm";
 import { Alert, Badge, Button, Card, PageTitle, PasswordField, Spinner } from "@/components/ui";
 import { apiFetch, errorMessage } from "@/lib/api";
@@ -72,11 +73,20 @@ function Detail({ b, onChanged }: { b: Borrower; onChanged: () => void }) {
         </dl>
       </Card>
 
+      <AdminIdentityPanel
+        b={b}
+        onError={(text) => setNotice({ kind: "error", text })}
+        onDone={(text) => {
+          setNotice({ kind: "success", text });
+          onChanged();
+        }}
+      />
+
       <Card title="แก้ไขข้อมูล">
         <p className="mb-3 text-sm text-slate-600">กรอกเฉพาะช่องที่ต้องการเปลี่ยน ระบบจะบันทึกเฉพาะส่วนที่แก้</p>
         <BorrowerForm
-          key={`${b.fullName}|${b.phone}|${b.bankName}|${b.bankAccountNo}`}
-          initial={{ fullName: b.fullName, phone: b.phone ?? "", bankName: b.bankName ?? "", bankAccountNo: b.bankAccountNo ?? "" }}
+          key={`${b.fullName}|${b.phone}|${b.bankName}|${b.bankAccountNo}|${b.nationalId}`}
+          initial={{ fullName: b.fullName, phone: b.phone ?? "", bankName: b.bankName ?? "", bankAccountNo: b.bankAccountNo ?? "", nationalId: b.nationalId ?? "" }}
           required={false}
           submitLabel="บันทึกการแก้ไข"
           onSubmit={async (values) => {

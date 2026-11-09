@@ -17,8 +17,9 @@ export interface AuthUser {
   /** When the borrower accepted the PDPA terms; null until then (always null for ADMIN). */
   pdpaAcceptedAt: Date | null;
   /**
-   * BORROWER only: phone, bank and account number are all filled in (CR-5/CR-6). While false the borrower may
-   * use nothing but their profile page, so the lender is never without a way to reach them or to pay them.
+   * BORROWER only: real name confirmed, national ID number, ID-card photo, phone, bank and account number are all in
+   * (CR-5/CR-6/CR-8). While false the borrower may use nothing but their profile page, so the lender always knows who
+   * they are and is never without a way to reach them or to pay them.
    */
   profileComplete: boolean;
 }
@@ -63,7 +64,18 @@ export function createAuthMiddleware(deps: { prisma: Db; sessionSecret: string }
             isActive: true,
             mustChangePassword: true,
             passwordHash: true,
-            borrower: { select: { id: true, pdpaAcceptedAt: true, phone: true, bankName: true, bankAccountNo: true } },
+            borrower: {
+              select: {
+                id: true,
+                pdpaAcceptedAt: true,
+                phone: true,
+                bankName: true,
+                bankAccountNo: true,
+                nationalId: true,
+                idCardFileKey: true,
+                realNameConfirmedAt: true,
+              },
+            },
           },
         })
       : null;
@@ -117,7 +129,7 @@ export function createAuthMiddleware(deps: { prisma: Db; sessionSecret: string }
           );
         }
         if (requireProfile && !user.profileComplete) {
-          return sendError(res, 403, "PROFILE_REQUIRED", "กรุณากรอกเบอร์โทรศัพท์ ธนาคาร และเลขบัญชีของคุณก่อนใช้งาน");
+          return sendError(res, 403, "PROFILE_REQUIRED", "กรุณากรอกข้อมูลส่วนตัวให้ครบ (ชื่อจริง เลขบัตรประชาชน รูปบัตร เบอร์โทรศัพท์ ธนาคาร และเลขบัญชี) ก่อนใช้งาน");
         }
         next();
       });

@@ -7,7 +7,7 @@ import { buildApp } from "../src/app.js";
 import { bangkokToday, formatDateOnly } from "../src/lib/dates.js";
 import { FieldCipher } from "../src/lib/field-crypto.js";
 import { hashPassword } from "../src/lib/password.js";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_NATIONAL_ID, TEST_SLIP_STORAGE } from "./helpers.js";
 
 const prisma = new PrismaClient();
 const dbUp = await prisma
@@ -55,6 +55,10 @@ describe.skipIf(!dbUp)("borrower portal (PostgreSQL)", () => {
         phone: "081-234-5678",
         bankName: "ธนาคารตัวอย่าง",
         bankAccountNo: new FieldCipher(TEST_FIELD_KEY).encrypt(ACCOUNT_NO),
+        // the identity part (CR-8): national ID number, ID-card photo on record and a confirmed real name
+        nationalId: new FieldCipher(TEST_FIELD_KEY).encrypt(TEST_NATIONAL_ID),
+        idCardFileKey: `${"b".repeat(32)}.jpg`,
+        realNameConfirmedAt: new Date(),
         ...(o.pdpa === false ? {} : { pdpaAcceptedAt: new Date(), pdpaVersion: "1" }),
       },
     });

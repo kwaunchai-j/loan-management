@@ -87,6 +87,13 @@ model Borrower {
   phone          String?
   bankName       String?
   bankAccountNo  String?
+  // National ID number: 13 digits, stored encrypted like the bank account number. Only an ADMIN (and the
+  // borrower themself) can read it.
+  nationalId     String?
+  // Key of the ID-card photo in the private file store (the same one the transfer slips use). ADMIN-only to read.
+  idCardFileKey  String?
+  // When the borrower stated their real full name (as on the ID card). Until then they are held on their profile page.
+  realNameConfirmedAt DateTime?
   pdpaAcceptedAt DateTime?
   pdpaVersion    String?
   createdAt      DateTime  @default(now())
@@ -131,9 +138,23 @@ model LoanRequest {
   createdBy        User              @relation("RequestCreatedBy", fields: [createdById], references: [id])
   decidedBy        User?             @relation("RequestDecidedBy", fields: [decidedById], references: [id])
   contract         Contract?
+  agreement        LoanAgreement?
 
   @@index([borrowerId])
   @@index([status])
+}
+
+/// The loan agreement (สัญญาเงินกู้) generated with EVERY loan request, whatever happens to the request later.
+/// `terms` is a frozen copy of what the document says (names, amounts, rates, the lender's account) taken
+/// when it was issued, so changing a rate or an account afterwards never rewrites a document already given out.
+model LoanAgreement {
+  id            String      @id @default(cuid())
+  agreementNo   String      @unique
+  loanRequestId String      @unique
+  terms         Json
+  createdAt     DateTime    @default(now())
+
+  loanRequest   LoanRequest @relation(fields: [loanRequestId], references: [id], onDelete: Cascade)
 }
 
 model Contract {

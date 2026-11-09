@@ -9,7 +9,7 @@ import type { AuthMiddleware } from "./middleware.js";
  * The wording of the terms is shown by the web app; bump this only when the wording changes.
  * Access is gated on `pdpaAcceptedAt` (DES-002); a version bump does not force re-acceptance.
  */
-export const PDPA_VERSION = "1";
+export const PDPA_VERSION = "2";
 
 const acceptBody = z.object({ version: z.string().min(1).max(32) });
 

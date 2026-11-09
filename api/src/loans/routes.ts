@@ -7,6 +7,7 @@ import { forbidClientBorrowerId, sessionBorrowerId } from "../auth/borrower-scop
 import { asyncHandler, DomainError, sendError } from "../http.js";
 import { formatDateOnly } from "../lib/dates.js";
 import { dateOnly, idParam, moneyAmount } from "../lib/schemas.js";
+import { getAgreement } from "./agreement.js";
 import { disbursementView, recordDisbursement } from "./disbursement.js";
 import { estimateInterest } from "./interest-estimate.js";
 import type { SlipStorage } from "../lib/slip-storage.js";
@@ -160,6 +161,14 @@ export function createAdminLoanRequestsRouter(deps: { prisma: Db; auth: AuthMidd
       const row = await prisma.loanRequest.findUnique({ where: { id: idOf(req.params.id) }, select: requestSelect });
       if (!row) return sendError(res, 404, "NOT_FOUND", "ไม่พบรายการ");
       res.status(200).json(requestView(row));
+    }),
+  );
+
+  // The loan agreement generated with the request (every request has one, whatever its status).
+  router.get(
+    "/:id/agreement",
+    asyncHandler(async (req, res) => {
+      res.status(200).json(await getAgreement(prisma, idOf(req.params.id)));
     }),
   );
 

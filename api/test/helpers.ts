@@ -22,12 +22,19 @@ export const TEST_SLIP_STORAGE = new LocalDiskSlipStorage(TEST_SLIP_DIR);
 /** Import files staged by tests live in a shared temp folder emptied by test/global-setup.ts. */
 export const TEST_IMPORT_STORAGE = new LocalDiskImportStorage(TEST_IMPORT_DIR);
 
+/** A valid Thai national ID number (13 digits with a correct check digit), for tests. */
+export const TEST_NATIONAL_ID = "1101700230732";
+
 /**
- * The phone, bank and (encrypted) account number a borrower must have filled in before they can ask for a loan
- * (CR-5). Spread into `prisma.borrower.create({ data: { ..., ...completeProfile() } })` in tests that file requests.
+ * Everything a borrower must have filled in before they can ask for a loan (CR-5, CR-8): phone, bank, the (encrypted)
+ * account number and national ID number, an ID-card photo on record, and a confirmed real name.
+ * Spread into `prisma.borrower.create({ data: { ..., ...completeProfile() } })` in tests that file requests.
  */
 export const completeProfile = () => ({
   phone: "081-234-5678",
   bankName: "ธนาคารทดสอบ",
   bankAccountNo: new FieldCipher(TEST_FIELD_KEY).encrypt("123-4-56789-0"),
+  nationalId: new FieldCipher(TEST_FIELD_KEY).encrypt(TEST_NATIONAL_ID),
+  idCardFileKey: `${randomBytes(16).toString("hex")}.jpg`,
+  realNameConfirmedAt: new Date(),
 });

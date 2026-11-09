@@ -5,12 +5,11 @@ import type { AddressInfo } from "node:net";
 import { PrismaClient } from "@prisma/client";
 import { buildApp } from "../src/app.js";
 import { bangkokToday, formatDateOnly } from "../src/lib/dates.js";
-import { FieldCipher } from "../src/lib/field-crypto.js";
 import { hashPassword } from "../src/lib/password.js";
 import { MAX_PENDING_PER_BORROWER } from "../src/loans/submissions.js";
 import { Notifier } from "../src/notifications/service.js";
 import type { ChannelAdapter, RenderedMessage } from "../src/notifications/types.js";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { completeProfile, RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
 
 const prisma = new PrismaClient();
 const dbUp = await prisma
@@ -75,9 +74,7 @@ describe.skipIf(!dbUp)("borrower payment slips (CR-1, PostgreSQL)", () => {
       data: {
         userId: user.id,
         fullName: `${marker} ${label}`,
-        phone: "081-234-5678",
-        bankName: "ธนาคารทดสอบ",
-        bankAccountNo: new FieldCipher(TEST_FIELD_KEY).encrypt("123-4-56789-0"),
+        ...completeProfile(),
         ...(o.pdpa === false ? {} : { pdpaAcceptedAt: new Date(), pdpaVersion: "1" }),
       },
     });

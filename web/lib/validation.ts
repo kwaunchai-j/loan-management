@@ -100,3 +100,31 @@ export function generatePassword(length = 12, random: (n: number) => Uint8Array 
   }
   return out;
 }
+
+/** Thai national ID number: 13 digits, the last a check digit (mirrors api/src/lib/borrower-fields.ts). Dashes and spaces are allowed. */
+export function checkNationalId(v: string): Check {
+  const s = v.trim().replace(/[\s-]/g, "");
+  if (s === "") return "กรุณากรอกเลขบัตรประชาชน";
+  if (!/^\d{13}$/.test(s)) return "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก";
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += Number(s[i]) * (13 - i);
+  return (11 - (sum % 11)) % 10 === Number(s[12]) ? null : "เลขบัตรประชาชนไม่ถูกต้อง กรุณาตรวจสอบตัวเลขอีกครั้ง";
+}
+
+const REAL_NAME = /^[\p{L}\p{M}][\p{L}\p{M}.'’-]*(?: [\p{L}\p{M}][\p{L}\p{M}.'’-]*)+$/u;
+
+/** A real first name and surname, letters only, as on the ID card (mirrors api/src/lib/borrower-fields.ts realNameProblem). */
+export function checkRealName(v: string, username?: string | null): Check {
+  const s = v.trim().replace(/\s+/g, " ");
+  if (s === "") return "กรุณากรอกชื่อ-นามสกุลจริง";
+  if (s.length > 200) return "ชื่อยาวไม่เกิน 200 ตัวอักษร";
+  if (!REAL_NAME.test(s)) return "กรุณากรอกชื่อจริงและนามสกุลจริง (ตัวอักษรเท่านั้น ไม่ใช้ตัวเลข) เหมือนในบัตรประชาชน";
+  if (username && s.toLowerCase() === username.toLowerCase()) return "ชื่อต้องเป็นชื่อจริง ไม่ใช่ชื่อผู้ใช้";
+  return null;
+}
+
+/** "1101700230732" -> "*********0732". */
+export function maskNationalId(v: string | null): string {
+  if (!v) return "-";
+  return v.length <= 4 ? "*".repeat(v.length) : `${"*".repeat(v.length - 4)}${v.slice(-4)}`;
+}

@@ -4,6 +4,7 @@ import { DomainError } from "../http.js";
 import { writeAuditLog } from "../lib/audit.js";
 import { bangkokToday, formatDateOnly } from "../lib/dates.js";
 import { computeInterest, InterestError } from "../lib/interest.js";
+import { issueAgreement, withAgreementNoRetry } from "./agreement.js";
 import { ledgerSnapshot, lockContract, reconcileContract, withLedgerErrors } from "./ledger.js";
 
 /**
@@ -65,27 +66,33 @@ export async function createRequest(
   if (input.requestedDueDate.getTime() <= bangkokToday(now).getTime()) {
     throw new DomainError(400, "DUE_DATE_NOT_FUTURE", "วันครบกำหนดต้องเป็นวันในอนาคต");
   }
-  return prisma.$transaction(async (tx) => {
-    const borrower = await tx.borrower.findUnique({ where: { id: input.borrowerId }, select: { id: true } });
-    if (!borrower) throw new DomainError(404, "BORROWER_NOT_FOUND", "ไม่พบผู้ยืม");
-    const row = await tx.loanRequest.create({
-      data: {
-        borrowerId: input.borrowerId,
-        amount: input.amount,
-        requestedDueDate: input.requestedDueDate,
-        createdById: input.createdById,
-      },
-      select: requestSelect,
-    });
-    await writeAuditLog(tx, {
-      actorId: input.createdById,
-      action: "loanRequest.create",
-      entityType: "LoanRequest",
-      entityId: row.id,
-      after: auditShape(row),
-    });
-    return row;
-  });
+  // every request is born with its loan agreement (สัญญาเงินกู้), in the same transaction: no request without one.
+  // The agreement number is unique; if two requests race for the same number, the loser retries with the next one.
+  return withAgreementNoRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const borrower = await tx.borrower.findUnique({ where: { id: input.borrowerId }, select: { id: true } });
+      if (!borrower) throw new DomainError(404, "BORROWER_NOT_FOUND", "ไม่พบผู้ยืม");
+      const row = await tx.loanRequest.create({
+        data: {
+          borrowerId: input.borrowerId,
+          amount: input.amount,
+          requestedDueDate: input.requestedDueDate,
+          createdById: input.createdById,
+        },
+        select: requestSelect,
+      });
+      const agreement = await issueAgreement(tx, row, bangkokToday(now));
+      await writeAuditLog(tx, {
+        actorId: input.createdById,
+        action: "loanRequest.create",
+        entityType: "LoanRequest",
+        entityId: row.id,
+        after: auditShape(row),
+        extra: { agreementNo: agreement.agreementNo },
+      });
+      return row;
+    }),
+  );
 }
 
 /** The next `count` contract numbers for `year`: LN-<year>-<6 digits>, continuing after the highest used. */

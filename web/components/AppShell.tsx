@@ -64,7 +64,7 @@ export function AppShell({ children, wide = false }: { children: ReactNode; wide
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 shadow-card">
+      <header className="sticky top-0 z-20 shadow-card print:hidden">
         <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-emerald-700 text-white">
           <div className={`mx-auto flex items-center justify-between gap-3 px-4 py-3 ${width}`}>
             <div className="flex min-w-0 items-center gap-3">
@@ -108,7 +108,7 @@ export function AppShell({ children, wide = false }: { children: ReactNode; wide
           </div>
         </nav>
       </header>
-      <main className={`mx-auto animate-rise space-y-4 px-4 py-6 ${width}`}>{children}</main>
+      <main className={`mx-auto animate-rise space-y-4 px-4 py-6 print:max-w-none print:p-0 ${width}`}>{children}</main>
     </div>
   );
 }

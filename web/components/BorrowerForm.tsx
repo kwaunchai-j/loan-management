@@ -7,6 +7,7 @@ import {
   checkBankAccount,
   checkBankName,
   checkFullName,
+  checkNationalId,
   checkPhone,
 } from "@/lib/validation";
 
@@ -15,6 +16,7 @@ export interface BorrowerFields {
   phone: string;
   bankName: string;
   bankAccountNo: string;
+  nationalId: string;
 }
 
 type Errors = Partial<Record<keyof BorrowerFields, string>>;
@@ -31,6 +33,7 @@ function validate(values: BorrowerFields, required: boolean): Errors {
     ["phone", checkPhone],
     ["bankName", checkBankName],
     ["bankAccountNo", checkBankAccount],
+    ["nationalId", checkNationalId],
   ];
   for (const [field, rule] of rules) {
     if (values[field].trim() === "" && !(required && field === "fullName")) continue;
@@ -103,7 +106,7 @@ export function BorrowerForm({
       <TextField label="ชื่อ-นามสกุล" autoComplete="off" value={values.fullName} error={errors.fullName} onChange={set("fullName")} />
       {required && (
         <p className="rounded-xl border border-teal-200 bg-teal-50/60 p-3 text-sm text-slate-800">
-          กรอกแค่ชื่อก็สร้างได้ เบอร์โทรศัพท์ ธนาคาร และเลขบัญชี <strong>ผู้ยืมจะกรอกเอง</strong>หลังเข้าสู่ระบบครั้งแรก (ที่เมนู ข้อมูลของฉัน) — ใส่ให้เองตรงนี้ได้ถ้ามีข้อมูลอยู่แล้ว
+          กรอกแค่ชื่อก็สร้างได้ ชื่อจริง เลขบัตรประชาชน รูปบัตร เบอร์โทรศัพท์ ธนาคาร และเลขบัญชี <strong>ผู้ยืมจะกรอกเอง</strong>หลังเข้าสู่ระบบครั้งแรก (ที่เมนู ข้อมูลของฉัน) — ใส่ให้เองตรงนี้ได้ถ้ามีข้อมูลอยู่แล้ว
         </p>
       )}
       <TextField
@@ -125,6 +128,15 @@ export function BorrowerForm({
         error={errors.bankAccountNo}
         hint={required ? "ไม่บังคับ · ตัวเลขและขีด (-) เท่านั้น" : "ตัวเลขและขีด (-) เท่านั้น"}
         onChange={set("bankAccountNo")}
+      />
+      <TextField
+        label="เลขบัตรประชาชน"
+        inputMode="numeric"
+        autoComplete="off"
+        value={values.nationalId}
+        error={errors.nationalId}
+        hint={required ? "ไม่บังคับ · ผู้ยืมต้องกรอกเองและส่งรูปบัตรหลังเข้าสู่ระบบ" : "ตัวเลข 13 หลัก"}
+        onChange={set("nationalId")}
       />
       {extra}
       <Button type="submit" className="w-full sm:w-auto" disabled={busy}>

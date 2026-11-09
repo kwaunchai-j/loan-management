@@ -16,6 +16,9 @@ const profile = (over: Partial<Profile> = {}) =>
     phone: null,
     bankName: null,
     bankAccountNo: null,
+    nationalId: null,
+    hasIdCard: false,
+    realNameConfirmed: false,
     profileComplete: false,
     pdpaAcceptedAt: "2026-10-01T03:00:00.000Z",
     pdpaVersion: "1",
@@ -28,21 +31,21 @@ const incompleteUser = { ...borrowerUser, profileComplete: false };
 const me = (user: object) => ({ "GET /auth/me": { body: { user } } });
 
 describe("ข้อมูลของฉัน (the borrower's own details)", () => {
-  it("shows the name and login as plain text (only the lender changes the name), and asks for the three details", async () => {
+  it("shows the login, and asks for the identity and the three contact details", async () => {
     mockApi({ [GET]: { body: profile() } });
     render(<ProfilePage />);
     expect(await screen.findByText("สมชาย ใจดี")).toBeInTheDocument();
     expect(screen.getByText("somchai")).toBeInTheDocument();
-    expect(screen.queryByLabelText(/ชื่อ-นามสกุล/)).not.toBeInTheDocument(); // no box to type the name in
+    expect(screen.getByLabelText(/ชื่อ-นามสกุลจริง/)).toHaveValue("สมชาย ใจดี"); // the name is not confirmed yet: the borrower states it (CR-8)
     expect(screen.getByText("ยังกรอกไม่ครบ")).toBeInTheDocument();
-    expect(screen.getByText(/ต้องกรอกทั้ง 3 ช่องก่อนจึงจะใช้งานระบบต่อได้/)).toBeInTheDocument();
+    expect(screen.getByText(/ต้องกรอกทั้ง 3 ช่องนี้ และยืนยันตัวตนด้านบน จึงจะใช้งานระบบต่อได้/)).toBeInTheDocument();
     expect(screen.getByLabelText("เบอร์โทรศัพท์")).toHaveValue("");
   });
 
   it("while the details are missing it says up front that nothing else opens until they are filled in", async () => {
     mockApi({ [GET]: { body: profile() } });
     render(<ProfilePage />);
-    expect(await screen.findByText(/กรุณากรอกเบอร์โทรศัพท์ ธนาคาร และเลขบัญชีของคุณให้ครบก่อน จึงจะใช้งานระบบต่อได้/)).toBeInTheDocument();
+    expect(await screen.findByText(/กรุณากรอกข้อมูลของคุณให้ครบก่อน จึงจะใช้งานระบบต่อได้/)).toBeInTheDocument();
   });
 
   it("when everything is filled in there is no such warning, and a way back to the home page", async () => {

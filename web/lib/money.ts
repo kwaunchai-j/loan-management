@@ -55,3 +55,42 @@ export function formatDay(day: string | null | undefined): string {
   if (!day || !isRealDate(day)) return day ?? "-";
   return new Date(`${day}T00:00:00.000Z`).toLocaleDateString("th-TH", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" });
 }
+
+const THAI_DIGITS = ["ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า"];
+const THAI_PLACES = ["", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน"];
+
+/** One group of up to 6 digits (below a million). `hasHigher`: a larger group comes before it, so a lone 1 is "เอ็ด". */
+function readThaiGroup(group: string, hasHigher: boolean): string {
+  const digits = group.replace(/^0+/, "");
+  let out = "";
+  for (let i = 0; i < digits.length; i++) {
+    const d = Number(digits[i]);
+    const place = digits.length - 1 - i;
+    if (d === 0) continue;
+    if (place === 0) out += d === 1 && (digits.length > 1 || hasHigher) ? "เอ็ด" : THAI_DIGITS[d];
+    else if (place === 1) out += d === 1 ? "สิบ" : d === 2 ? "ยี่สิบ" : `${THAI_DIGITS[d]}สิบ`;
+    else out += `${THAI_DIGITS[d]}${THAI_PLACES[place]}`;
+  }
+  return out;
+}
+
+function readThaiInteger(whole: string): string {
+  const digits = whole.replace(/^0+/, "");
+  if (digits === "") return THAI_DIGITS[0]!;
+  const groups: string[] = [];
+  for (let end = digits.length; end > 0; end -= 6) groups.unshift(digits.slice(Math.max(0, end - 6), end));
+  return groups
+    .map((g, i) => (/^0+$/.test(g) ? "" : readThaiGroup(g, i > 0 || /[1-9]/.test(groups.slice(0, i).join(""))) + (i < groups.length - 1 ? "ล้าน" : "")))
+    .join("");
+}
+
+/** "1234.5" -> "หนึ่งพันสองร้อยสามสิบสี่บาทห้าสิบสตางค์", "5000" -> "ห้าพันบาทถ้วน" (the amount in words, as a Thai contract writes it). */
+export function bahtText(value: string | null | undefined): string {
+  const m = value === null || value === undefined ? null : /^(\d+)(?:\.(\d+))?$/.exec(value.trim());
+  if (!m) return "";
+  const whole = m[1]!;
+  const satang = (m[2] ?? "").padEnd(2, "0").slice(0, 2);
+  const baht = /^0*$/.test(whole) ? "" : `${readThaiInteger(whole)}บาท`;
+  if (satang === "00") return baht === "" ? `${THAI_DIGITS[0]}บาทถ้วน` : `${baht}ถ้วน`;
+  return `${baht}${readThaiInteger(satang)}สตางค์`;
+}

@@ -6,7 +6,8 @@ import type { AuthMiddleware } from "../auth/middleware.js";
 import { asyncHandler, sendError } from "../http.js";
 import { writeAuditLog } from "../lib/audit.js";
 import { FieldCipher } from "../lib/field-crypto.js";
-import { bankAccountNoField, bankNameField, phoneField } from "../lib/borrower-fields.js";
+import { bankAccountNoField, bankNameField, maskNationalId, nationalIdField, phoneField } from "../lib/borrower-fields.js";
+import { slipTypeOfKey, type SlipStorage } from "../lib/slip-storage.js";
 import { hashPassword, passwordPolicyViolation } from "../lib/password.js";
 
 /**
@@ -22,6 +23,7 @@ const fullName = z.string().trim().min(1).max(200);
 const phone = phoneField;
 const bankName = bankNameField;
 const bankAccountNo = bankAccountNoField;
+const nationalId = nationalIdField;
 const newPassword = z.string().min(1).max(1024);
 
 const createBody = z.object({
@@ -33,6 +35,7 @@ const createBody = z.object({
   phone: phone.optional(),
   bankName: bankName.optional(),
   bankAccountNo: bankAccountNo.optional(),
+  nationalId: nationalId.optional(),
 });
 
 const updateBody = z
@@ -42,6 +45,12 @@ const updateBody = z
     phone: phone.nullable().optional(),
     bankName: bankName.nullable().optional(),
     bankAccountNo: bankAccountNo.nullable().optional(),
+    // null clears it (CR-8): the borrower must then fill it in again before they can use the system
+    nationalId: nationalId.nullable().optional(),
+    // take the ID-card photo off the record (the file itself is kept) so the borrower must send a new one
+    removeIdCard: z.literal(true).optional(),
+    // ask the borrower to state their real name again
+    reconfirmName: z.literal(true).optional(),
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), "ไม่มีข้อมูลที่ต้องแก้ไข");
 
@@ -60,6 +69,9 @@ const borrowerSelect = {
   phone: true,
   bankName: true,
   bankAccountNo: true,
+  nationalId: true,
+  idCardFileKey: true,
+  realNameConfirmedAt: true,
   pdpaAcceptedAt: true,
   pdpaVersion: true,
   createdAt: true,
@@ -68,10 +80,18 @@ const borrowerSelect = {
 
 type BorrowerRow = Prisma.BorrowerGetPayload<{ select: typeof borrowerSelect }>;
 
-function view(b: BorrowerRow) {
-  const { user, ...rest } = b;
+/**
+ * `mask`: lists show the national ID number masked; the full number goes only with one borrower's own record.
+ * The key of the ID-card photo never leaves the server: `hasIdCard` says whether there is one, and the photo itself
+ * is read from GET /:id/id-card.
+ */
+function view(b: BorrowerRow, options: { mask?: boolean } = {}) {
+  const { user, idCardFileKey, realNameConfirmedAt, nationalId: idNo, ...rest } = b;
   return {
     ...rest,
+    nationalId: idNo !== null && options.mask ? maskNationalId(idNo) : idNo,
+    hasIdCard: idCardFileKey !== null,
+    realNameConfirmed: realNameConfirmedAt !== null,
     // null for borrowers created by import: they have a name only and no login yet.
     account: user
       ? {
@@ -89,12 +109,17 @@ const profileOf = (b: BorrowerRow) => ({
   phone: b.phone,
   bankName: b.bankName,
   bankAccountNo: b.bankAccountNo,
+  nationalId: b.nationalId,
+  idCardFileKey: b.idCardFileKey,
+  realNameConfirmed: b.realNameConfirmedAt !== null,
 });
 
 export function createAdminBorrowersRouter(deps: {
   prisma: Db;
   auth: AuthMiddleware;
   cipher: FieldCipher;
+  /** The private file store the ID-card photos are kept in (the same one the transfer slips use). */
+  storage: SlipStorage;
 }): Router {
   const router = Router();
   const { prisma, cipher } = deps;
@@ -105,6 +130,7 @@ export function createAdminBorrowersRouter(deps: {
   const open = (b: BorrowerRow): BorrowerRow => ({
     ...b,
     bankAccountNo: b.bankAccountNo === null ? null : cipher.decrypt(b.bankAccountNo),
+    nationalId: b.nationalId === null ? null : cipher.decrypt(b.nationalId),
   });
 
   async function findOr404(res: Parameters<typeof sendError>[0], rawId: unknown) {
@@ -147,6 +173,7 @@ export function createAdminBorrowersRouter(deps: {
               phone: data.phone ?? null,
               bankName: data.bankName ?? null,
               bankAccountNo: data.bankAccountNo === undefined ? null : cipher.encrypt(data.bankAccountNo),
+              nationalId: data.nationalId === undefined ? null : cipher.encrypt(data.nationalId),
             },
             select: borrowerSelect,
           });
@@ -187,7 +214,7 @@ export function createAdminBorrowersRouter(deps: {
           skip: q.data.offset,
         }),
       ]);
-      res.status(200).json({ total, items: rows.map((r) => view(open(r))) });
+      res.status(200).json({ total, items: rows.map((r) => view(open(r), { mask: true })) });
     }),
   );
 
@@ -196,6 +223,30 @@ export function createAdminBorrowersRouter(deps: {
     asyncHandler(async (req, res) => {
       const row = await findOr404(res, req.params.id);
       if (row) res.status(200).json(view(row));
+    }),
+  );
+
+  // The ID-card photo the borrower sent (CR-8). ADMIN only, never cached, served as an inert image.
+  router.get(
+    "/:id/id-card",
+    asyncHandler(async (req, res) => {
+      const row = await findOr404(res, req.params.id);
+      if (!row) return;
+      const key = row.idCardFileKey;
+      const type = key ? slipTypeOfKey(key) : null;
+      const data = key && type ? await deps.storage.get(key) : null;
+      if (!type || !data) return sendError(res, 404, "NOT_FOUND", "ยังไม่มีรูปบัตรประชาชน");
+      res
+        .status(200)
+        .set({
+          "Content-Type": type.mime,
+          "Content-Length": String(data.length),
+          "Content-Disposition": `inline; filename="id-card.${type.ext}"`,
+          "X-Content-Type-Options": "nosniff",
+          "Content-Security-Policy": "default-src 'none'; sandbox",
+          "Cache-Control": "private, no-store",
+        })
+        .send(data);
     }),
   );
 
@@ -208,13 +259,16 @@ export function createAdminBorrowersRouter(deps: {
       }
       const before = await findOr404(res, req.params.id);
       if (!before) return;
-      const { bankAccountNo, ...rest } = body.data;
+      const { bankAccountNo, nationalId, removeIdCard, reconfirmName, ...rest } = body.data;
       const updated = await prisma.$transaction(async (tx) => {
         const row = await tx.borrower.update({
           where: { id: before.id },
           data: {
             ...rest,
             ...(bankAccountNo !== undefined ? { bankAccountNo: bankAccountNo === null ? null : cipher.encrypt(bankAccountNo) } : {}),
+            ...(nationalId !== undefined ? { nationalId: nationalId === null ? null : cipher.encrypt(nationalId) } : {}),
+            ...(removeIdCard ? { idCardFileKey: null } : {}),
+            ...(reconfirmName ? { realNameConfirmedAt: null } : {}),
           },
           select: borrowerSelect,
         });

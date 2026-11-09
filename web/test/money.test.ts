@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDate, checkMoney, formatBaht, formatDay, isRealDate, isZeroMoney, todayBangkok } from "@/lib/money";
+import { bahtText, checkDate, checkMoney, formatBaht, formatDay, isRealDate, isZeroMoney, todayBangkok } from "@/lib/money";
 
 describe("formatBaht (text only, never a float)", () => {
   it("groups thousands, shows whole baht without decimals and satang with two", () => {
@@ -67,5 +67,39 @@ describe("dates", () => {
     expect(formatDay("2026-11-30")).toBe("30 พ.ย. 2569");
     expect(formatDay("2026-01-01")).toBe("1 ม.ค. 2569");
     expect(formatDay(null)).toBe("-");
+  });
+});
+
+describe("bahtText (the amount in Thai words)", () => {
+  it.each([
+    ["1", "หนึ่งบาทถ้วน"],
+    ["10", "สิบบาทถ้วน"],
+    ["11", "สิบเอ็ดบาทถ้วน"],
+    ["20", "ยี่สิบบาทถ้วน"],
+    ["21", "ยี่สิบเอ็ดบาทถ้วน"],
+    ["101", "หนึ่งร้อยเอ็ดบาทถ้วน"],
+    ["5000", "ห้าพันบาทถ้วน"],
+    ["10000", "หนึ่งหมื่นบาทถ้วน"],
+    ["123456", "หนึ่งแสนสองหมื่นสามพันสี่ร้อยห้าสิบหกบาทถ้วน"],
+    ["1000000", "หนึ่งล้านบาทถ้วน"],
+    ["1000001", "หนึ่งล้านเอ็ดบาทถ้วน"],
+    ["2500000", "สองล้านห้าแสนบาทถ้วน"],
+    ["1234.5", "หนึ่งพันสองร้อยสามสิบสี่บาทห้าสิบสตางค์"],
+    ["1234.50", "หนึ่งพันสองร้อยสามสิบสี่บาทห้าสิบสตางค์"],
+    ["0.25", "ยี่สิบห้าสตางค์"],
+    ["0.01", "หนึ่งสตางค์"],
+    ["5000.00", "ห้าพันบาทถ้วน"],
+    ["0", "ศูนย์บาทถ้วน"],
+    ["1000000000", "หนึ่งพันล้านบาทถ้วน"],
+    ["999999999999.99", "เก้าแสนเก้าหมื่นเก้าพันเก้าร้อยเก้าสิบเก้าล้านเก้าแสนเก้าหมื่นเก้าพันเก้าร้อยเก้าสิบเก้าบาทเก้าสิบเก้าสตางค์"],
+  ])("%s -> %s", (input, words) => {
+    expect(bahtText(input)).toBe(words);
+  });
+
+  it("returns nothing for what is not a plain amount", () => {
+    expect(bahtText(null)).toBe("");
+    expect(bahtText(undefined)).toBe("");
+    expect(bahtText("abc")).toBe("");
+    expect(bahtText("-5")).toBe("");
   });
 });

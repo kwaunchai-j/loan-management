@@ -47,13 +47,16 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
-/** api/src/borrower/portal.ts — GET/PATCH /me/profile: the borrower's own details; `profileComplete` = phone, bank and account number are all filled in */
+/** api/src/borrower/portal.ts — GET/PATCH /me/profile and POST /me/id-card: the borrower's own details; `profileComplete` = real name, national ID, ID-card photo, phone, bank and account number are all in */
 export const profileSchema = z.object({
   username: z.string().nullable(),
   fullName: z.string(),
   phone: z.string().nullable(),
   bankName: z.string().nullable(),
   bankAccountNo: z.string().nullable(),
+  nationalId: z.string().nullable(),
+  hasIdCard: z.boolean(),
+  realNameConfirmed: z.boolean(),
   profileComplete: z.boolean(),
   pdpaAcceptedAt: z.string().nullable(),
   pdpaVersion: z.string().nullable(),
@@ -86,6 +89,10 @@ export const borrowerSchema = z.object({
   phone: z.string().nullable(),
   bankName: z.string().nullable(),
   bankAccountNo: z.string().nullable(),
+  /** the full number on one borrower, masked ("*********0732") in the list */
+  nationalId: z.string().nullable(),
+  hasIdCard: z.boolean(),
+  realNameConfirmed: z.boolean(),
   pdpaAcceptedAt: z.string().nullable(),
   pdpaVersion: z.string().nullable(),
   createdAt: z.string(),
@@ -142,6 +149,28 @@ export type InterestEstimate = z.infer<typeof interestEstimateSchema>;
 export const requestListSchema = z.object({ total: z.number().int(), items: z.array(requestSchema) });
 
 /** api/src/loans/routes.ts — POST /loan-requests and /loan-requests/:id/cancel answer with the same view */
+
+/**
+ * api/src/loans/agreement.ts — GET /admin/loan-requests/:id/agreement and GET /me/loan-requests/:id/agreement:
+ * the loan agreement (สัญญาเงินกู้) generated with every request. `terms` is what the document says, frozen when it was issued.
+ */
+export const agreementSchema = z.object({
+  agreementNo: z.string(),
+  issuedAt: z.string(),
+  requestId: z.string(),
+  requestStatus: requestStatusSchema,
+  terms: z.object({
+    issuedOn: z.string(),
+    borrowerName: z.string(),
+    principal: z.string(),
+    dueDate: z.string(),
+    interestRatePctPerMonth: z.string().nullable(),
+    lateFeeRatePctPerDay: z.string().nullable(),
+    estimate: z.object({ days: z.number().int(), interestAmount: z.string(), totalToRepay: z.string() }).nullable(),
+    payment: z.object({ bankName: z.string(), accountName: z.string(), accountNo: z.string() }).nullable(),
+  }),
+});
+export type Agreement = z.infer<typeof agreementSchema>;
 
 /** api/src/borrower/portal.ts — GET /me/loan-requests (no borrower name, no reject reason) */
 export const myRequestSchema = z.object({

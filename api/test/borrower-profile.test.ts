@@ -7,7 +7,7 @@ import { buildApp } from "../src/app.js";
 import { FieldCipher } from "../src/lib/field-crypto.js";
 import { hashPassword } from "../src/lib/password.js";
 import { bangkokToday, formatDateOnly } from "../src/lib/dates.js";
-import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_SLIP_STORAGE } from "./helpers.js";
+import { RELAXED_LOGIN_LIMITS, TEST_FIELD_KEY, TEST_IMPORT_STORAGE, TEST_NATIONAL_ID, TEST_SLIP_STORAGE } from "./helpers.js";
 
 const prisma = new PrismaClient();
 const dbUp = await prisma.$queryRaw`select 1`.then(() => true).catch(() => false);
@@ -36,6 +36,15 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
   const row = (key: string) => prisma.borrower.findUniqueOrThrow({ where: { id: borrowerIds[key]! } });
   const FULL = { phone: "081-234-5678", bankName: "ธนาคารกสิกรไทย", bankAccountNo: "123-4-56789-0" };
 
+  const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const uploadIdCard = (as: string, bytes: Buffer = JPEG, type = "image/jpeg") =>
+    fetch(`${base}/me/id-card`, { method: "POST", headers: { "content-type": type, cookie: cookies[as]! }, body: new Uint8Array(bytes) });
+  /** The identity part of the details (CR-8): real name, national ID number and the ID-card photo. */
+  async function finishIdentity(as: string) {
+    expect((await patch(as, { fullName: "สมหญิง รักดี", nationalId: TEST_NATIONAL_ID })).status).toBe(200);
+    expect((await uploadIdCard(as)).status).toBe(201);
+  }
+
   async function login(username: string) {
     const res = await fetch(`${base}/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password: PASSWORD }) });
     return res.headers.getSetCookie().find((c) => c.startsWith("loan_session="))!.split(";")[0]!;
@@ -51,6 +60,10 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
         phone: data.phone ?? null,
         bankName: data.bankName ?? null,
         bankAccountNo: data.bankAccountNo ? cipher.encrypt(data.bankAccountNo) : null,
+        // a borrower who has all of FULL is a finished one: real name confirmed, national ID and ID-card photo on record too (CR-8)
+        ...(data.bankAccountNo
+          ? { nationalId: cipher.encrypt(TEST_NATIONAL_ID), idCardFileKey: `${"a".repeat(32)}.jpg`, realNameConfirmedAt: new Date() }
+          : {}),
         pdpaAcceptedAt: data.pdpa === false ? null : new Date(),
       },
     });
@@ -109,7 +122,10 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
     it("fills in the three details, stores the account number encrypted, and the profile becomes complete", async () => {
       const res = await patch("other", { phone: "  089-111-2222 ", bankName: " ธนาคารไทยพาณิชย์ ", bankAccountNo: " 987-6-54321-0 " });
       expect(res.status).toBe(200);
-      expect(await res.json()).toMatchObject({ phone: "089-111-2222", bankName: "ธนาคารไทยพาณิชย์", bankAccountNo: "987-6-54321-0", profileComplete: true });
+      // phone, bank and account number alone are no longer enough: the identity part (CR-8) is still missing
+      expect(await res.json()).toMatchObject({ phone: "089-111-2222", bankName: "ธนาคารไทยพาณิชย์", bankAccountNo: "987-6-54321-0", profileComplete: false });
+      await finishIdentity("other");
+      expect(await (await api("other", "GET", "/me/profile")).json()).toMatchObject({ profileComplete: true });
       const stored = await row("other");
       expect([stored.phone, stored.bankName]).toEqual(["089-111-2222", "ธนาคารไทยพาณิชย์"]);
       expect(stored.bankAccountNo).not.toContain("987");
@@ -120,7 +136,9 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
       await makeBorrower("step");
       expect((await (await patch("step", { phone: "0812345678" })).json())).toMatchObject({ phone: "0812345678", bankName: null, profileComplete: false });
       expect((await (await patch("step", { bankName: "ธนาคารกรุงเทพ" })).json())).toMatchObject({ phone: "0812345678", bankName: "ธนาคารกรุงเทพ", profileComplete: false });
-      expect((await (await patch("step", { bankAccountNo: "1234567890" })).json())).toMatchObject({ bankAccountNo: "1234567890", profileComplete: true });
+      expect((await (await patch("step", { bankAccountNo: "1234567890" })).json())).toMatchObject({ bankAccountNo: "1234567890", profileComplete: false });
+      await finishIdentity("step");
+      expect(await (await api("step", "GET", "/me/profile")).json()).toMatchObject({ profileComplete: true });
     });
 
     it("can correct a detail that was already there", async () => {
@@ -240,6 +258,8 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
       await makeBorrower("later");
       expect((await requestLoan("later")).status).toBe(403);
       expect((await patch("later", FULL)).status).toBe(200);
+      expect((await api("later", "GET", "/me/contracts")).status).toBe(403); // the identity part is still missing (CR-8)
+      await finishIdentity("later");
       expect((await api("later", "GET", "/me/contracts")).status).toBe(200);
       expect((await requestLoan("later")).status).toBe(201);
       expect(await prisma.loanRequest.count({ where: { borrowerId: borrowerIds.later } })).toBe(1);
@@ -347,6 +367,11 @@ describe.skipIf(!dbUp)("the borrower fills in their own details (PostgreSQL)", (
 
       expect((await requestLoan("journey")).status).toBe(403); // details first
       expect((await patch("journey", FULL)).status).toBe(200);
+      expect((await requestLoan("journey")).status).toBe(403); // phone, bank and account are not enough any more (CR-8)
+      expect((await patch("journey", { fullName: "สมหญิง รักดี", nationalId: TEST_NATIONAL_ID })).status).toBe(200);
+      expect((await requestLoan("journey")).status).toBe(403); // the ID-card photo is still missing
+      const photo = await fetch(`${base}/me/id-card`, { method: "POST", headers: { "content-type": "image/jpeg", cookie: cookies.journey! }, body: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]) });
+      expect(photo.status).toBe(201);
       expect((await requestLoan("journey")).status).toBe(201);
 
       // and the lender sees what the borrower typed
